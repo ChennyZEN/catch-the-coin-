@@ -14,3 +14,5 @@ Apri la cartella in VS Code e avvia `index.html` con l'estensione Live Server.
 - Grafica: Kenney.nl (CC0)
 - Musica menu: "Crystal Cave (song18)" - The Cynic Project / pixelsphere.org (CC0)
 - Musica di gioco: "Enchanted Tiki 86" - cynicmusic.com (CC0) 
+## Licenza
+Il codice è rilasciato con licenza MIT (vedi `LICENSE`). Grafica e musiche sono di terzi, con i crediti in `CREDITS.txt`.
