@@ -1,18 +1,94 @@
-# Catch the coin by Chenny
+Catch the Coin – Development Log & Project Overview
+🎮 About the Game
 
-Piccolo arcade da browser: muovi il personaggio, raccogli le monete e schiva i pipistrelli. Hai una sola vita, e più sei bravo più il gioco accelera. 
+Catch the Coin is an independent game project built around a simple yet engaging concept: collect coins, overcome challenges, and enjoy a gameplay experience focused on fun, accessibility, and continuous improvement.
 
-## Comandi
-- Frecce o A / D: muoversi (oppure mouse / touch)
-- P o Esc: pausa
-- Spazio o Invio: iniziare o rigiocare
+The project aims to deliver an enjoyable experience while providing a solid foundation for future features, refinements, and gameplay enhancements.
 
-## Come provarlo
-Apri la cartella in VS Code e avvia `index.html` con l'estensione Live Server.
+This development log will serve as the central place to follow the evolution of Catch the Coin, discover new features, and stay informed about upcoming changes.
 
-## Crediti
-- Grafica: Kenney.nl (CC0)
-- Musica menu: "Crystal Cave (song18)" - The Cynic Project / pixelsphere.org (CC0)
-- Musica di gioco: "Enchanted Tiki 86" - cynicmusic.com (CC0) 
-## Licenza
-Il codice è rilasciato con licenza MIT (vedi `LICENSE`). Grafica e musiche sono di terzi, con i crediti in `CREDITS.txt`.
+🚀 Development Goals
+
+The current development process focuses on establishing the core gameplay experience and ensuring that the game provides a stable and enjoyable foundation.
+
+The main development priorities include:
+
+Gameplay Improvements: Refining existing mechanics and making the overall experience more responsive and enjoyable.
+Performance Optimization: Improving stability, performance, and resource efficiency.
+Visual Enhancements: Gradually improving the game's presentation, animations, and overall visual identity.
+User Experience: Making the game intuitive, accessible, and enjoyable for different types of players.
+Bug Fixes: Identifying and resolving issues reported during development and testing.
+🛠️ Future Updates & Planned Features
+
+Catch the Coin is an evolving project, and future versions are expected to introduce improvements and additional content.
+
+The development roadmap may include:
+
+New gameplay mechanics and interactive elements.
+Additional challenges and gameplay variations.
+Improved animations, visual effects, and interface elements.
+Quality-of-life improvements.
+Performance optimizations and general refinements.
+Bug fixes and compatibility improvements.
+
+These plans represent the current development direction and may evolve as the project progresses and new ideas emerge.
+
+📦 Version History
+
+Each release will include a summary of the most relevant changes, improvements, and fixes.
+
+Future development updates will follow this structure:
+
+Version 1.0
+
+Initial project release.
+Core gameplay implementation.
+Initial gameplay experience made available to players.
+
+Upcoming Versions
+
+New features and gameplay improvements.
+Visual and technical refinements.
+Bug fixes based on testing and community feedback.
+
+Specific changes will be documented as they are implemented and released.
+
+💬 Community Feedback
+
+Feedback is an important part of the development process.
+
+Suggestions, bug reports, and constructive criticism are always welcome. They help identify areas that need improvement and provide valuable insight into what players would like to see in future releases.
+
+If you encounter an issue or have an idea that could improve Catch the Coin, feel free to share your thoughts through the project's available communication channels.
+
+🔮 Looking Ahead
+
+The goal of Catch the Coin is to grow through continuous development, meaningful improvements, and new ideas.
+
+Every update represents another step toward making the game better. Whether it is a small adjustment, a new feature, or a significant gameplay improvement, each change contributes to the project's long-term vision.
+
+Thank you for your interest in Catch the Coin and for following its development!
+
+Stay tuned for future updates.
+
+Catch the Coin by Chenny
+
+A small browser-based arcade game: move your character, collect coins, and dodge bats. You only have one life, and the better you perform, the faster the game gets.
+
+Controls
+Arrow Keys or A / D: Move (mouse / touch controls also supported)
+P or Esc: Pause
+Space or Enter: Start or restart the game
+How to Run
+
+Open the project folder in VS Code and launch index.html using the Live Server extension.
+
+Credits
+Graphics: Kenney.nl (CC0)
+Menu Music: "Crystal Cave (song18)" – The Cynic Project / pixelsphere.org (CC0)
+Gameplay Music: "Enchanted Tiki 86" – cynicmusic.com (CC0)
+License
+
+The source code is released under the MIT License (see LICENSE).
+
+Graphics and music are third-party assets. Full credits and attributions are provided in CREDITS.txt.
