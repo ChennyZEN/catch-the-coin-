@@ -1,0 +1,16 @@
+CATCH THE COIN by CHENNY
+Credits
+
+GRAPHICS
+Kenney.nl - Platformer Art Pixel pack (CC0 / Public Domain)
+
+MUSIC - MAIN MENU
+"Crystal Cave (song18)"
+The Cynic Project - pixelsphere.org (CC0 / Public Domain)
+
+MUSIC - IN-GAME
+"Enchanted Tiki 86"
+cynicmusic.com (CC0 / Public Domain)
+
+CODE
+Written with the assistance of an AI assistant.

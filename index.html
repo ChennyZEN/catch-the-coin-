@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Catch the coin by Chenny</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-wrap">
+    <canvas id="game" width="480" height="640"></canvas>
+
+    <button id="btn-pause" class="hidden" aria-label="Pausa">II</button>
+
+    <!-- MENU PRINCIPALE -->
+    <div id="screen-menu" class="screen">
+      <img class="menu-coin" src="Assets/coin.png" alt="" onerror="this.style.display='none'">
+      <h1>Catch the coin</h1>
+      <p class="subtitle">- Chenny -</p>
+      <p class="tagline">Una sola vita. Schiva i pipistrelli!</p>
+      <p class="stat">Record: <strong id="menu-record">0</strong></p>
+      <button id="btn-start" class="btn btn-primary">START</button>
+      <button id="btn-sound" class="btn">SUONO: ON</button>
+      <p class="hint">Frecce / A-D o mouse / touch per muoverti</p>
+      <div class="credits">
+        <p>Grafica: Kenney.nl (CC0)</p>
+        <p>Musica menu: Crystal Cave (song18) - The Cynic Project / pixelsphere.org (CC0)</p>
+        <p>Musica di gioco: Enchanted Tiki 86 - cynicmusic.com (CC0)</p>
+      </div>
+    </div>
+
+    <!-- PAUSA -->
+    <div id="screen-pause" class="screen hidden">
+      <h2>Pausa</h2>
+      <button id="btn-resume" class="btn btn-primary">RIPRENDI</button>
+      <button id="btn-pause-menu" class="btn">MENU</button>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="screen-gameover" class="screen hidden">
+      <h2>Game over</h2>
+      <p class="stat">Punteggio: <strong id="final-score">0</strong></p>
+      <p class="stat">Record: <strong id="final-record">0</strong></p>
+      <p id="new-record" class="new-record hidden">Nuovo record!</p>
+      <button id="btn-retry" class="btn btn-primary">RIGIOCA</button>
+      <button id="btn-over-menu" class="btn">MENU</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

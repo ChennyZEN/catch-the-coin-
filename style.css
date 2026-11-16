@@ -1,0 +1,198 @@
+:root {
+  --accent: #4cc9f0;
+  --hot: #f72585;
+  --gold: #ffd60a;
+  --violet: #7209b7;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(circle at 50% 15%, #3a0ca3 0%, #240046 45%, #10002b 100%);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Contenitore: tutto si ridimensiona con --u (1% della larghezza del gioco) */
+#game-wrap {
+  --w: min(100vw, 75vh, 480px);
+  --u: calc(var(--w) / 100);
+  position: relative;
+  width: var(--w);
+  height: calc(var(--w) * 4 / 3);
+  border-radius: calc(var(--u) * 2);
+  overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(76, 201, 240, 0.5), 0 0 40px rgba(114, 9, 183, 0.7);
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  background: linear-gradient(180deg, #10002b 0%, #240046 55%, #3c096c 100%);
+}
+
+.hidden { display: none !important; }
+
+/* Schermate sopra il canvas */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--u) * 2.4);
+  text-align: center;
+  color: #fff;
+  background: rgba(16, 0, 43, 0.78);
+  backdrop-filter: blur(2px);
+}
+.screen p { margin: 0; }
+
+#screen-menu {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(247, 37, 133, 0.35), transparent 55%),
+    linear-gradient(180deg, rgba(16, 0, 43, 0.93), rgba(60, 9, 108, 0.93));
+}
+
+/* Titoli */
+h1 {
+  margin: 0;
+  font-size: calc(var(--u) * 7.5);
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: linear-gradient(90deg, var(--gold), var(--hot), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 12px rgba(247, 37, 133, 0.6));
+  animation: float 3s ease-in-out infinite;
+}
+h2 {
+  margin: 0;
+  font-size: calc(var(--u) * 9);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 18px var(--accent);
+}
+#screen-gameover h2 { color: var(--hot); text-shadow: 0 0 18px var(--hot); }
+
+.subtitle { font-size: calc(var(--u) * 4.4); color: var(--accent); letter-spacing: 0.2em; }
+.tagline  { font-size: calc(var(--u) * 4); }
+.hint     { font-size: calc(var(--u) * 3); color: rgba(255, 255, 255, 0.7); }
+
+.stat { font-size: calc(var(--u) * 4.6); }
+.stat strong { color: var(--gold); }
+.new-record {
+  font-size: calc(var(--u) * 4.6);
+  font-weight: 700;
+  color: var(--gold);
+  animation: pulse-text 0.9s ease-in-out infinite;
+}
+
+/* Moneta che rimbalza */
+.menu-coin {
+  width: calc(var(--u) * 12);
+  image-rendering: pixelated;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+/* Pulsanti */
+.btn {
+  width: calc(var(--u) * 46);
+  padding: calc(var(--u) * 2.4) 0;
+  font-family: inherit;
+  font-size: calc(var(--u) * 4.2);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: linear-gradient(135deg, #2b2d42, #3a0ca3);
+  border: 2px solid var(--accent);
+  border-radius: calc(var(--u) * 2);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  background: linear-gradient(135deg, var(--accent), var(--violet));
+  box-shadow: 0 0 18px rgba(76, 201, 240, 0.8);
+}
+.btn:active { transform: scale(0.97); }
+.btn:focus-visible, #btn-pause:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+.btn-primary {
+  border-color: var(--gold);
+  background: linear-gradient(135deg, var(--hot), #ff9e00);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #ff4d9d, #ffb703);
+  box-shadow: 0 0 22px rgba(255, 214, 10, 0.9);
+  animation-play-state: paused;
+}
+
+/* Pulsante pausa durante il gioco */
+#btn-pause {
+  position: absolute;
+  top: calc(var(--u) * 7.5);
+  right: calc(var(--u) * 2);
+  width: calc(var(--u) * 9);
+  height: calc(var(--u) * 7);
+  font-family: inherit;
+  font-size: calc(var(--u) * 3.8);
+  font-weight: 700;
+  color: #fff;
+  background: rgba(43, 45, 66, 0.85);
+  border: 2px solid var(--accent);
+  border-radius: calc(var(--u) * 1.5);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+#btn-pause:hover { background: var(--accent); color: #111; transform: scale(1.08); }
+
+/* Crediti */
+.credits {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--u) * 3);
+  padding: 0 calc(var(--u) * 5);
+  font-size: calc(var(--u) * 2.4);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Animazioni */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 214, 10, 0.55); }
+  50%      { box-shadow: 0 0 22px 4px rgba(255, 214, 10, 0.7); }
+}
+@keyframes pulse-text {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+
+/* Rispetta chi disattiva le animazioni nel sistema */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
