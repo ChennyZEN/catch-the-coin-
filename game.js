@@ -1,6 +1,5 @@
 /*
- /*
-  Catch the coin by Chenny
+  Catch the Coin by ChennyZEN
   Grafica: Kenney.nl (CC0) - pacchetto Platformer Art Pixel
   Musica menu: "Crystal Cave (song18)" - The Cynic Project / pixelsphere.org (CC0)
   Musica di gioco: "Enchanted Tiki 86" - cynicmusic.com (CC0)
@@ -25,18 +24,18 @@ const el = {
 
 // ---- CONFIGURAZIONE ----
 const CONFIG = {
-  playerSpeed: 300,      // velocità iniziale del player (pixel/secondo)
+  playerSpeed: 500,      // velocità iniziale del player (pixel/secondo)
   playerSpeedGain: 8,    // quanta velocità in più per ogni punto
-  playerSpeedMax: 900,   // limite massimo (alzalo o abbassalo a piacere)
+  playerSpeedMax: 1000,   // limite massimo (alzalo o abbassalo a piacere)
   spawnInterval: 0.8,    // secondi tra un oggetto e l'altro
-  itemSpeed: 150,        // velocità iniziale di caduta
+  itemSpeed: 300,        // velocità iniziale di caduta
   itemSpeedGain: 3,      // aumento della caduta per ogni punto
   lives: 1,              // modalità hardcore: una sola vita
-  badChance: 0.25,       // probabilità che compaia un pipistrello
+  badChance: 0.50,       // probabilità che compaia un pipistrello
   playerW: 50,
   playerH: 40,
   itemSize: 30,
-  musicVolume: 0.3
+  musicVolume: 0.5
 };
 
 // ---- STATO ----
@@ -162,7 +161,7 @@ function startGame() {
 function goToMenu() { state = "menu"; }
 function toggleSound() {
   soundOn = !soundOn;
-  el.soundBtn.textContent = "SUONO: " + (soundOn ? "ON" : "OFF");
+  el.soundBtn.textContent = "SOUND: " + (soundOn ? "ON" : "OFF");
 }
 function togglePause() {
   if (state === "playing") state = "paused";
@@ -307,10 +306,10 @@ function drawScene() {
   ctx.font = "bold 20px sans-serif";
   ctx.textAlign = "left";
   ctx.fillStyle = "#ffd60a";
-  ctx.fillText("Punti: " + score, 10, 25);
+  ctx.fillText("Points: " + score, 10, 25);
   ctx.textAlign = "right";
   ctx.fillStyle = "#4cc9f0";
-  ctx.fillText("Velocità: x" + (currentPlayerSpeed() / CONFIG.playerSpeed).toFixed(1), canvas.width - 10, 25);
+  ctx.fillText("Speed: x" + (currentPlayerSpeed() / CONFIG.playerSpeed).toFixed(1), canvas.width - 10, 25);
 }
 
 function draw() {

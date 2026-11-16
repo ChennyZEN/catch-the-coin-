@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Generatore cover</title>
+  <style>
+    body { margin: 0; padding: 20px; background: #222; color: #fff; font-family: system-ui, sans-serif; text-align: center; }
+    canvas { max-width: 100%; border: 2px solid #4cc9f0; }
+    button { margin-top: 16px; padding: 12px 24px; font-size: 18px; cursor: pointer; }
+    p { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <h2>Cover 630 x 500</h2>
+  <canvas id="cover" width="630" height="500"></canvas><br>
+  <button id="download">Scarica cover.png</button>
+  <p id="msg"></p>
+
+<script>
+const c = document.getElementById("cover");
+const ctx = c.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+
+const FONT = '"Trebuchet MS", "Segoe UI", system-ui, sans-serif';
+
+function load(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+// Disegna uno sprite centrato in (cx, cy), alto h, mantenendo le proporzioni
+function sprite(img, cx, cy, h, rot = 0) {
+  if (!img) return;
+  const w = h * img.width / img.height;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+function titleText(text, y, size) {
+  ctx.font = "900 " + size + "px " + FONT;
+  ctx.textAlign = "center";
+  const w = ctx.measureText(text).width;
+  const g = ctx.createLinearGradient(315 - w / 2, 0, 315 + w / 2, 0);
+  g.addColorStop(0, "#ffd60a");
+  g.addColorStop(0.5, "#f72585");
+  g.addColorStop(1, "#4cc9f0");
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = "#10002b";
+  ctx.shadowColor = "rgba(247, 37, 133, 0.7)";
+  ctx.shadowBlur = 24;
+  ctx.strokeText(text, 315, y);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = g;
+  ctx.fillText(text, 315, y);
+}
+
+function label(text, y, size, color) {
+  ctx.font = "bold " + size + "px " + FONT;
+  ctx.textAlign = "center";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = "#10002b";
+  ctx.strokeText(text, 315, y);
+  ctx.fillStyle = color;
+  ctx.fillText(text, 315, y);
+}
+
+function draw(player, coin, bat) {
+  // Sfondo
+  const bg = ctx.createLinearGradient(0, 0, 0, 500);
+  bg.addColorStop(0, "#10002b");
+  bg.addColorStop(0.55, "#240046");
+  bg.addColorStop(1, "#5a189a");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 630, 500);
+
+  const glow = ctx.createRadialGradient(315, 130, 10, 315, 130, 330);
+  glow.addColorStop(0, "rgba(247, 37, 133, 0.35)");
+  glow.addColorStop(1, "rgba(247, 37, 133, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, 630, 500);
+
+  // Monete e pipistrelli che cadono: [x, y, altezza, immagine, rotazione]
+  const items = [
+    [70, 95, 58, coin, -0.25], [565, 70, 50, coin, 0.2],
+    [95, 300, 64, coin, 0.15], [545, 305, 60, coin, -0.2],
+    [200, 360, 44, coin, 0.1], [405, 330, 40, coin, -0.1],
+    [60, 200, 62, bat, 0], [575, 195, 66, bat, 0], [480, 390, 56, bat, 0]
+  ];
+  for (const [x, y, h, img, rot] of items) sprite(img, x, y, h, rot);
+
+  // Personaggio
+  sprite(player, 315, 395, 100);
+
+  // Testi
+  titleText("CATCH THE", 118, 64);
+  titleText("COIN", 210, 100);
+  label("by ChennyZEN", 258, 28, "#4cc9f0");
+  label("ONE LIFE. DODGE THE BATS!", 478, 26, "#ffffff");
+
+  if (!player || !coin || !bat) {
+    document.getElementById("msg").textContent =
+      "Alcune immagini non sono state trovate: controlla che cover.html sia nella cartella principale, accanto ad Assets.";
+  }
+}
+
+Promise.all([load("Assets/player.png"), load("Assets/coin.png"), load("Assets/bat.png")])
+  .then(([player, coin, bat]) => draw(player, coin, bat));
+
+document.getElementById("download").addEventListener("click", () => {
+  try {
+    const a = document.createElement("a");
+    a.href = c.toDataURL("image/png");
+    a.download = "cover.png";
+    a.click();
+  } catch (e) {
+    document.getElementById("msg").textContent =
+      "Apri la pagina con Live Server (non con doppio clic sul file) per poter scaricare l'immagine.";
+  }
+});
+</script>
+</body>
+</html>
