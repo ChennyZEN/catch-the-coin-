@@ -4,7 +4,7 @@
 
 A small browser arcade game: move your character, collect coins and dodge the bats. You only have one life, and the better you do, the faster the game gets.
 
-**Play it on Itch.io:** https://chennyzen.itch.io/catch-the-coin-by-chenny
+**Play it on Itch.io:** https://chennyzen.itch.io/catch-the-coin 
 
 ## Controls
 - Arrow keys or A / D: move (mouse / touch also supported)
