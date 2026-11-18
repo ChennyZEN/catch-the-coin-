@@ -16,6 +16,13 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 
 ## Version history
 
+### v1.3.0
+- Power-ups: shield, coin magnet and slow-mo
+- Rare golden coin (worth 5) and a combo multiplier up to x5
+- New bats: zig-zag and fast (with a warning mark)
+- Stages every 25 coins with themed backgrounds (cave, night, storm) and warning waves that always leave a safe lane
+- Game music speeds up slightly with each stage
+
 ### v1.2.0
 - Game feel: particles, "+1" popups, screen shake and flash on death
 - Fairer collisions (smaller hitboxes) and a "safe lane" rule for bat spawns

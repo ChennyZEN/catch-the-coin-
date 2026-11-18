@@ -67,17 +67,20 @@ jobs:
           name: catch-the-coin-v${{ steps.ver.outputs.version }}
           path: catch-the-coin-v${{ steps.ver.outputs.version }}.zip
 
-      - name: Create GitHub Release
+            - name: Create GitHub Release 
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.ver.outputs.version }}
+          TAG: ${{ github.ref_name }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            "catch-the-coin-v${VERSION}.zip" \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
-
+          NOTES="release-notes/${TAG}.md"
+          if [ -f "$NOTES" ]; then
+            gh release create "$TAG" "catch-the-coin-v${VERSION}.zip" --title "$TAG" --notes-file "$NOTES"
+          else
+            gh release create "$TAG" "catch-the-coin-v${VERSION}.zip" --title "$TAG" --generate-notes
+          fi
+      
       - name: Install butler
         run: |
           curl -fL -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default \
