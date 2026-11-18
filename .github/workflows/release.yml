@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:      # avvio manuale: prova tutto senza pubblicare
+
+permissions:
+  contents: write
+
+env:
+  ITCH_TARGET: chennyzen/catch-the-coin
+  ITCH_CHANNEL: html5
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read the version from index.html
+        id: ver
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION=$(grep -oP 'class="version">v\K[0-9]+\.[0-9]+\.[0-9]+' index.html || true)
+          if [ -z "$VERSION" ]; then
+            echo "Version label not found in index.html"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Game version: $VERSION"
+          if [ "$REF_TYPE" = "tag" ] && [ "$REF_NAME" != "v$VERSION" ]; then
+            echo "Tag $REF_NAME does not match index.html version v$VERSION"; exit 1
+          fi
+
+      - name: Check project files
+        run: |
+          # Linux distingue maiuscole e minuscole, come il server di Itch.io
+          for f in index.html style.css game.js LICENSE CREDITS.txt README.md \
+                   Assets/player.png Assets/coin.png Assets/bat.png \
+                   Assets/music_menu.mp3 Assets/music_game.mp3; do
+            [ -f "$f" ] || { echo "Missing file: $f"; exit 1; }
+          done
+          if grep -En '^(<<<<<<<|=======|>>>>>>>)' index.html style.css game.js README.md CREDITS.txt; then
+            echo "Merge conflict markers found"; exit 1
+          fi
+
+      - name: Build the game folder and the zip
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          mkdir build
+          cp index.html style.css game.js LICENSE CREDITS.txt build/
+          cp -r Assets build/
+          # allinea il parametro ?v= alla versione
+          sed -i -E "s/\?v=[0-9]+\.[0-9]+\.[0-9]+/?v=${VERSION}/g" build/index.html
+          (cd build && zip -r "../catch-the-coin-v${VERSION}.zip" .)
+          unzip -l "catch-the-coin-v${VERSION}.zip"
+          unzip -l "catch-the-coin-v${VERSION}.zip" | grep -qE ' index\.html$'
+
+      - name: Keep the zip as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: catch-the-coin-v${{ steps.ver.outputs.version }}
+          path: catch-the-coin-v${{ steps.ver.outputs.version }}.zip
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            "catch-the-coin-v${VERSION}.zip" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
+
+      - name: Install butler
+        run: |
+          curl -fL -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default \
+            || curl -fL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -o butler.zip
+          chmod +x butler
+          ./butler -V
+
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' && '--dry-run' || '' }}
+        run: |
+          ./butler push $DRY --userversion "$VERSION" build "$ITCH_TARGET:$ITCH_CHANNEL"

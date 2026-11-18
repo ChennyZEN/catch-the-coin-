@@ -15,6 +15,14 @@ A small browser arcade game: move your character, collect coins and dodge the ba
 Open the project folder in VS Code and launch `index.html` with the Live Server extension.
 
 ## Version history
+
+### v1.2.0
+- Game feel: particles, "+1" popups, screen shake and flash on death
+- Fairer collisions (smaller hitboxes) and a "safe lane" rule for bat spawns
+- Audio: separate music/SFX volumes, M to mute, saved settings, new-record jingle, rising pitch for coin streaks
+- 3-2-1 countdown, F for fullscreen, light sprite animations
+- Favicon and meta tags
+
 ### v1.1.0
 - Rebalanced difficulty: faster player and falling objects, more bats
 - Interface translated to English

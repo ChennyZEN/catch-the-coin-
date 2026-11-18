@@ -4,7 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Catch the Coin</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="description" content="Catch the Coin by ChennyZEN: a one-life browser arcade game. Collect coins, dodge the bats.">
+  <meta name="theme-color" content="#10002b">
+  <meta property="og:title" content="Catch the Coin by ChennyZEN">
+  <meta property="og:description" content="Collect coins, dodge the bats. One life only!">
+  <link rel="icon" type="image/png" href="Assets/coin.png">
+  <link rel="stylesheet" href="style.css?v=1.2.0">
 </head>
 <body>
   <div id="game-wrap">
@@ -14,6 +19,7 @@
 
     <!-- MAIN MENU -->
     <div id="screen-menu" class="screen">
+      <p class="version">v1.2.0</p>
       <img class="menu-coin" src="Assets/coin.png" alt="" onerror="this.style.display='none'">
       <h1>Catch the Coin</h1>
       <p class="subtitle">by ChennyZEN</p>
@@ -21,7 +27,11 @@
       <p class="stat">Record: <strong id="menu-record">0</strong></p>
       <button id="btn-start" class="btn btn-primary">START</button>
       <button id="btn-sound" class="btn">SOUND: ON</button>
-      <p class="hint">Arrows / A-D or mouse / touch to move</p>
+      <div class="volumes">
+        <label>Music <input class="vol-music" type="range" min="0" max="100" value="50"></label>
+        <label>SFX <input class="vol-sfx" type="range" min="0" max="100" value="100"></label>
+      </div>
+      <p class="hint">Arrows / A-D or mouse / touch to move<br>P pause · M mute · F fullscreen</p>
       <div class="credits">
         <p>Graphics: Kenney.nl (CC0)</p>
         <p>Menu music: Crystal Cave (song18) - The Cynic Project / pixelsphere.org (CC0)</p>
@@ -34,6 +44,10 @@
       <h2>PAUSE</h2>
       <button id="btn-resume" class="btn btn-primary">RESUME</button>
       <button id="btn-pause-menu" class="btn">MENU</button>
+      <div class="volumes">
+        <label>Music <input class="vol-music" type="range" min="0" max="100" value="50"></label>
+        <label>SFX <input class="vol-sfx" type="range" min="0" max="100" value="100"></label>
+      </div>
     </div>
 
     <!-- GAME OVER -->
@@ -47,6 +61,6 @@
     </div>
   </div>
 
-  <script src="game.js"></script>
+  <script src="game.js?v=1.2.0"></script>
 </body>
 </html>
