@@ -9,36 +9,49 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false; // pixel art nitida
 
-// ?debug mostra le hitbox, ?test accorcia gli stage e rende comuni i power-up
+// ?debug mostra le hitbox, ?test accorcia stage e timer e rende comuni i power-up
 const DEBUG = location.search.includes("debug");
-const TEST = location.search.includes("test"); // [v1.3.0]
+const TEST = location.search.includes("test");
 
-// ---- ELEMENTI HTML (menu, pausa, game over) ----
+const $ = (id) => document.getElementById(id);
+
+// ---- ELEMENTI HTML ----
 const el = {
-  menu: document.getElementById("screen-menu"),
-  pause: document.getElementById("screen-pause"),
-  gameover: document.getElementById("screen-gameover"),
-  pauseBtn: document.getElementById("btn-pause"),
-  soundBtn: document.getElementById("btn-sound"),
-  menuRecord: document.getElementById("menu-record"),
-  finalScore: document.getElementById("final-score"),
-  finalRecord: document.getElementById("final-record"),
-  newRecord: document.getElementById("new-record")
+  menu: $("screen-menu"),
+  howto: $("screen-howto"),
+  stats: $("screen-stats"),
+  settings: $("screen-settings"),
+  pause: $("screen-pause"),
+  gameover: $("screen-gameover"),
+  pauseBtn: $("btn-pause"),
+  soundBtn: $("btn-sound"),
+  resetBtn: $("btn-reset"),
+  menuRecord: $("menu-record"),
+  modeDesc: $("mode-desc"),
+  finalScore: $("final-score"),
+  finalRecord: $("final-record"),
+  newRecord: $("new-record"),
+  overMode: $("over-mode"),
+  overAch: $("over-ach"),
+  statsList: $("stats-list")
 };
+const modeBtns = document.querySelectorAll(".mode-btn");
+const langBtns = document.querySelectorAll(".lang-btn");
 const volMusic = document.querySelectorAll(".vol-music");
 const volSfx = document.querySelectorAll(".vol-sfx");
 
+const MODES = ["classic", "daily", "time", "zen"];
+
 // ---- CONFIGURAZIONE ----
-// prettier-ignore
 const CONFIG = {
-  playerSpeed: 500,      // velocità iniziale del player (pixel/secondo)
-  playerSpeedGain: 8,    // quanta velocità in più per ogni moneta raccolta
-  playerSpeedMax: 1000,  // limite massimo (alzalo o abbassalo a piacere)
-  spawnInterval: 0.8,    // secondi tra un oggetto e l'altro
-  itemSpeed: 300,        // velocità iniziale di caduta
-  itemSpeedGain: 3,      // aumento della caduta per ogni moneta raccolta
-  lives: 1,              // modalità hardcore: una sola vita
-  badChance: 0.50,       // probabilità che compaia un pipistrello
+  playerSpeed: 500, // velocità iniziale del player (pixel/secondo)
+  playerSpeedGain: 8, // quanta velocità in più per ogni moneta raccolta
+  playerSpeedMax: 1000, // limite massimo (alzalo o abbassalo a piacere)
+  spawnInterval: 0.8, // secondi tra un oggetto e l'altro
+  itemSpeed: 300, // velocità iniziale di caduta
+  itemSpeedGain: 3, // aumento della caduta per ogni moneta raccolta
+  lives: 1, // Classic e Daily: una sola vita
+  badChance: 0.5, // probabilità che compaia un pipistrello
   playerW: 50,
   playerH: 40,
   itemSize: 30,
@@ -56,30 +69,38 @@ const CONFIG = {
   dyingTime: 0.7,
   maxParticles: 200,
 
-  // ---- [v1.3.0] novità ----
-  stageSize: 25,         // ogni quante monete cambia stage (sfondo + ondata)
-  comboStep: 5,          // monete di fila per salire di moltiplicatore
-  comboMax: 5,           // moltiplicatore massimo
-  goldChance: 0.08,      // probabilità che una moneta sia d'oro
+  // ---- v1.3.0 ----
+  stageSize: 25,
+  comboStep: 5,
+  comboMax: 5,
+  goldChance: 0.08,
   goldValue: 5,
   goldSize: 40,
-  powerupChance: 0.06,   // probabilità che nasca un power-up (uno alla volta)
-  powerupFrom: 5,        // dalla quale moneta raccolta compaiono
+  powerupChance: 0.06,
+  powerupFrom: 5,
   magnetTime: 6,
   magnetRadius: 170,
   magnetPull: 380,
   slowTime: 5,
-  slowFactor: 0.55,      // velocità di caduta durante lo slow-mo
-  zigFrom: 1,            // dallo stage 1 (2º) compaiono i pipistrelli a zig-zag
+  slowFactor: 0.55,
+  zigFrom: 1,
   zigChance: 0.25,
   zigAmp: 55,
-  fastFrom: 2,           // dallo stage 2 (3º) compaiono i pipistrelli veloci
+  fastFrom: 2,
   fastChance: 0.2,
   fastMul: 1.6,
-  fastWarning: 0.6,      // secondi di avviso prima che un pipistrello veloce entri
-  waveWarning: 1.6,      // secondi di avviso prima di un'ondata
+  fastWarning: 0.6,
+  waveWarning: 1.6,
   waveColumns: 6,
-  musicRateMax: 1.25     // velocità massima della musica di gioco
+  musicRateMax: 1.25,
+
+  // ---- [v1.4.0] novità ----
+  timeAttackTime: 60, // secondi in Time Attack
+  timePenalty: 5, // secondi persi per ogni pipistrello in Time Attack
+  invulnTime: 1, // secondi di invulnerabilità dopo un colpo in Time Attack
+  zenTime: 90, // secondi in Zen
+  zenGoldChance: 0.15, // monete d'oro più frequenti in Zen
+  zenRamp: 0.5 // in Zen la difficoltà cresce più lentamente
 };
 if (TEST) {
   Object.assign(CONFIG, {
@@ -88,23 +109,204 @@ if (TEST) {
     powerupChance: 0.5,
     goldChance: 0.4,
     zigFrom: 0,
-    fastFrom: 0
+    fastFrom: 0,
+    timeAttackTime: 20,
+    zenTime: 20
   });
 }
 
+// ---- TESTI (EN / IT) ----
+const I18N = {
+  en: {
+    start: "START",
+    how_to: "HOW TO PLAY",
+    stats: "STATS",
+    settings: "SETTINGS",
+    back: "BACK",
+    record: "Record",
+    score: "Score",
+    points: "Points",
+    speed: "Speed",
+    pause: "PAUSE",
+    resume: "RESUME",
+    menu: "MENU",
+    restart: "RESTART",
+    gameover: "Game over",
+    new_record: "New Record!",
+    hint1: "Arrows / A-D or mouse / touch to move",
+    hint2: "P pause · M mute · F fullscreen · 1-4 mode",
+    music: "Music",
+    sfx: "SFX",
+    sound_on: "SOUND: ON",
+    sound_off: "SOUND: OFF",
+    language: "Language",
+    reset: "RESET DATA",
+    reset_confirm: "CLICK AGAIN TO CONFIRM",
+    mode_classic: "Classic",
+    mode_daily: "Daily",
+    mode_time: "Time Attack",
+    mode_zen: "Zen",
+    desc_classic: "One life. Everything gets faster.",
+    desc_daily: "The same run for everyone, every day.",
+    desc_time: "60 seconds. Every bat costs 5 seconds.",
+    desc_zen: "90 relaxed seconds. No bats, just coins.",
+    stage: "STAGE",
+    warning_wave: "WARNING: WAVE INCOMING",
+    coin_shower: "COIN SHOWER!",
+    times_up: "TIME'S UP!",
+    go: "GO!",
+    muted: "MUTED (M)",
+    combo: "COMBO",
+    shield: "SHIELD",
+    magnet: "MAGNET",
+    slow: "SLOW-MO",
+    time: "TIME",
+    ach_unlocked: "Achievement unlocked",
+    htp_move: "Move: arrows / A-D, or mouse / touch.",
+    htp_coin: "Coin: +1 point (times your combo).",
+    htp_gold: "Golden coin: +5 points.",
+    htp_bat: "Bats end the run. Zig-zag bats weave; fast bats show a red warning mark.",
+    htp_shield: "Shield: absorbs one bat.",
+    htp_magnet: "Magnet: pulls coins toward you.",
+    htp_slow: "Slow-mo: slows falling objects.",
+    htp_combo: "Combo: x2 at 5 coins in a row, up to x5 at 20.",
+    htp_stage: "Every 25 coins: a new stage and a warning wave. Follow the glowing safe lane.",
+    htp_modes: "Daily: same sequence for everyone. Time Attack: bats cost 5 seconds. Zen: no bats.",
+    st_games: "Games played",
+    st_time: "Time played",
+    st_coins: "Coins caught",
+    st_gold: "Golden coins",
+    st_powerups: "Power-ups",
+    st_combo: "Best combo streak",
+    st_stage: "Best stage",
+    st_best_classic: "Best Classic",
+    st_best_daily: "Daily best (today)",
+    st_best_time: "Best Time Attack",
+    st_best_zen: "Best Zen",
+    st_ach: "Achievements",
+    ach_first_coin: "First coin",
+    achd_first_coin: "Catch your first coin.",
+    ach_coins_100: "Collector",
+    achd_coins_100: "Catch 100 coins in total.",
+    ach_coins_500: "Treasure hunter",
+    achd_coins_500: "Catch 500 coins in total.",
+    ach_combo_10: "Combo starter",
+    achd_combo_10: "Reach a streak of 10 coins.",
+    ach_combo_20: "Max combo",
+    achd_combo_20: "Reach the x5 combo (20 in a row).",
+    ach_gold_3: "Gold rush",
+    achd_gold_3: "Catch 3 golden coins in one run.",
+    ach_stage_3: "Deep dive",
+    achd_stage_3: "Reach stage 3.",
+    ach_shield_save: "Close call",
+    achd_shield_save: "Block a bat with a shield.",
+    ach_daily_done: "Daily player",
+    achd_daily_done: "Finish a Daily run.",
+    ach_time_40: "Speed runner",
+    achd_time_40: "Score 40 points in Time Attack."
+  },
+  it: {
+    start: "INIZIA",
+    how_to: "COME SI GIOCA",
+    stats: "STATISTICHE",
+    settings: "IMPOSTAZIONI",
+    back: "INDIETRO",
+    record: "Record",
+    score: "Punteggio",
+    points: "Punti",
+    speed: "Velocità",
+    pause: "PAUSA",
+    resume: "RIPRENDI",
+    menu: "MENU",
+    restart: "RIGIOCA",
+    gameover: "Game over",
+    new_record: "Nuovo record!",
+    hint1: "Frecce / A-D o mouse / touch per muoverti",
+    hint2: "P pausa · M muto · F schermo intero · 1-4 modalità",
+    music: "Musica",
+    sfx: "Effetti",
+    sound_on: "SUONO: ON",
+    sound_off: "SUONO: OFF",
+    language: "Lingua",
+    reset: "AZZERA DATI",
+    reset_confirm: "CLICCA ANCORA PER CONFERMARE",
+    mode_classic: "Classico",
+    mode_daily: "Giornaliera",
+    mode_time: "Time Attack",
+    mode_zen: "Zen",
+    desc_classic: "Una sola vita. Tutto accelera.",
+    desc_daily: "La stessa partita per tutti, ogni giorno.",
+    desc_time: "60 secondi. Ogni pipistrello costa 5 secondi.",
+    desc_zen: "90 secondi rilassati. Niente pipistrelli, solo monete.",
+    stage: "STAGE",
+    warning_wave: "ATTENZIONE: ONDATA IN ARRIVO",
+    coin_shower: "PIOGGIA DI MONETE!",
+    times_up: "TEMPO SCADUTO!",
+    go: "VIA!",
+    muted: "MUTO (M)",
+    combo: "COMBO",
+    shield: "SCUDO",
+    magnet: "MAGNETE",
+    slow: "SLOW-MO",
+    time: "TEMPO",
+    ach_unlocked: "Obiettivo sbloccato",
+    htp_move: "Movimento: frecce / A-D, oppure mouse / touch.",
+    htp_coin: "Moneta: +1 punto (per il tuo combo).",
+    htp_gold: "Moneta d'oro: +5 punti.",
+    htp_bat:
+      "I pipistrelli chiudono la partita. Quelli a zig-zag ondeggiano; quelli veloci mostrano un segnale rosso.",
+    htp_shield: "Scudo: assorbe un pipistrello.",
+    htp_magnet: "Magnete: attira le monete verso di te.",
+    htp_slow: "Slow-mo: rallenta gli oggetti che cadono.",
+    htp_combo: "Combo: x2 a 5 monete di fila, fino a x5 a 20.",
+    htp_stage: "Ogni 25 monete: nuovo stage e ondata di avviso. Segui la corsia sicura luminosa.",
+    htp_modes:
+      "Giornaliera: stessa sequenza per tutti. Time Attack: i pipistrelli costano 5 secondi. Zen: niente pipistrelli.",
+    st_games: "Partite giocate",
+    st_time: "Tempo di gioco",
+    st_coins: "Monete raccolte",
+    st_gold: "Monete d'oro",
+    st_powerups: "Power-up",
+    st_combo: "Miglior serie combo",
+    st_stage: "Miglior stage",
+    st_best_classic: "Record Classico",
+    st_best_daily: "Record Giornaliera (oggi)",
+    st_best_time: "Record Time Attack",
+    st_best_zen: "Record Zen",
+    st_ach: "Obiettivi",
+    ach_first_coin: "Prima moneta",
+    achd_first_coin: "Raccogli la tua prima moneta.",
+    ach_coins_100: "Collezionista",
+    achd_coins_100: "Raccogli 100 monete in totale.",
+    ach_coins_500: "Cacciatore di tesori",
+    achd_coins_500: "Raccogli 500 monete in totale.",
+    ach_combo_10: "Inizio combo",
+    achd_combo_10: "Raggiungi una serie di 10 monete.",
+    ach_combo_20: "Combo massimo",
+    achd_combo_20: "Raggiungi il combo x5 (20 di fila).",
+    ach_gold_3: "Corsa all'oro",
+    achd_gold_3: "Raccogli 3 monete d'oro in una partita.",
+    ach_stage_3: "Immersione",
+    achd_stage_3: "Raggiungi lo stage 3.",
+    ach_shield_save: "Per un soffio",
+    achd_shield_save: "Blocca un pipistrello con lo scudo.",
+    ach_daily_done: "Giocatore del giorno",
+    achd_daily_done: "Finisci una partita Giornaliera.",
+    ach_time_40: "Velocista",
+    achd_time_40: "Fai 40 punti in Time Attack."
+  }
+};
+
 // ---- STATO ----
-let state = "menu"; // "menu" | "countdown" | "playing" | "paused" | "dying" | "gameover"
+let state = "menu"; // menu | howto | stats | settings | countdown | playing | paused | dying | gameover
+let mode = "classic"; // modalità della partita in corso
+let selectedMode = "classic"; // modalità scelta nel menu
 let score, lives, player, items, spawnTimer;
-let targetX = null; // destinazione del player con mouse/touch
+let targetX = null;
 let newRecord = false;
-let highScore = 0;
-try {
-  highScore = Number(localStorage.getItem("highScore")) || 0;
-} catch (e) {}
 const keys = {};
 let soundOn = true;
 
-// v1.2.0
 let particles = [];
 let popups = [];
 let shake = 0,
@@ -116,7 +318,6 @@ let countdown = 0,
   dyingTimer = 0;
 let gameTime = 0;
 
-// [v1.3.0]
 let coinsCaught = 0,
   stage = 0;
 let shield = false,
@@ -131,21 +332,131 @@ let theme = 0,
   prevTheme = 0,
   themeFade = 1;
 
-// impostazioni audio salvate nel browser
-const settings = { music: CONFIG.musicVolume, sfx: 1, sound: true };
+// [v1.4.0]
+let timeLeft = 0,
+  invuln = 0,
+  runTime = 0,
+  spawnIndex = 0,
+  playerHidden = false;
+let run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, ended: false };
+let runUnlocked = [];
+let toasts = [];
+let dailyKey = "",
+  dailySeed = 0;
+let rnd = Math.random;
+
+// ---- IMPOSTAZIONI E STATISTICHE (salvate nel browser) ----
+function detectLang() {
+  return String(navigator.language || "en")
+    .toLowerCase()
+    .startsWith("it")
+    ? "it"
+    : "en";
+}
+const settings = {
+  music: CONFIG.musicVolume,
+  sfx: 1,
+  sound: true,
+  mode: "classic",
+  lang: detectLang()
+};
 try {
   const saved = JSON.parse(localStorage.getItem("ctcSettings"));
   if (saved) {
     if (typeof saved.music === "number") settings.music = Math.min(1, Math.max(0, saved.music));
     if (typeof saved.sfx === "number") settings.sfx = Math.min(1, Math.max(0, saved.sfx));
     if (typeof saved.sound === "boolean") settings.sound = saved.sound;
+    if (MODES.includes(saved.mode)) settings.mode = saved.mode;
+    if (saved.lang === "en" || saved.lang === "it") settings.lang = saved.lang;
   }
 } catch (e) {}
 soundOn = settings.sound;
+selectedMode = settings.mode;
+mode = selectedMode;
+let lang = settings.lang;
 function saveSettings() {
   try {
     localStorage.setItem("ctcSettings", JSON.stringify(settings));
   } catch (e) {}
+}
+function t(key) {
+  return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+}
+
+function defaultStats() {
+  return {
+    games: 0,
+    playTime: 0,
+    coins: 0,
+    gold: 0,
+    powerups: 0,
+    bestStreak: 0,
+    bestStage: 0,
+    best: { classic: 0, time: 0, zen: 0 },
+    daily: {},
+    ach: {}
+  };
+}
+let stats = defaultStats();
+try {
+  const s = JSON.parse(localStorage.getItem("ctcStats"));
+  if (s) {
+    stats = Object.assign(defaultStats(), s);
+    stats.best = Object.assign({ classic: 0, time: 0, zen: 0 }, s.best);
+    stats.daily = s.daily || {};
+    stats.ach = s.ach || {};
+  }
+  // recupera il record Classic delle versioni precedenti
+  stats.best.classic = Math.max(stats.best.classic, Number(localStorage.getItem("highScore")) || 0);
+} catch (e) {}
+function saveStats() {
+  const days = Object.keys(stats.daily).sort();
+  while (days.length > 60) delete stats.daily[days.shift()];
+  try {
+    localStorage.setItem("ctcStats", JSON.stringify(stats));
+    localStorage.setItem("highScore", stats.best.classic); // compatibilità con le versioni precedenti
+  } catch (e) {}
+}
+window.addEventListener("pagehide", saveStats);
+
+function todayKey() {
+  const d = new Date();
+  return (
+    d.getFullYear() +
+    "-" +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(d.getDate()).padStart(2, "0")
+  );
+}
+function bestFor(m) {
+  return m === "daily" ? stats.daily[todayKey()] || 0 : stats.best[m] || 0;
+}
+
+// ---- NUMERI CASUALI RIPRODUCIBILI (per la sfida giornaliera) ----
+function hashString(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let x = Math.imul(a ^ (a >>> 15), 1 | a);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+// Ogni "evento" (nascita di un oggetto, ondata...) ha il suo generatore: in Daily è lo stesso per tutti
+function useRng(salt) {
+  rnd =
+    mode === "daily"
+      ? mulberry32((dailySeed ^ Math.imul(salt + 1, 2654435761)) >>> 0)
+      : Math.random;
 }
 
 // ---- SPRITE (cartella Assets/) ----
@@ -219,7 +530,6 @@ const SFX = {
     setTimeout(() => beep(880, 0.12), 120);
     setTimeout(() => beep(1320, 0.3), 240);
   },
-  // [v1.3.0]
   gold: () => {
     beep(1175, 0.08);
     setTimeout(() => beep(1568, 0.14), 70);
@@ -254,7 +564,8 @@ const MUSIC = {
 function syncMusic() {
   let wanted = null;
   if (soundOn && audioUnlocked) {
-    if (state === "menu") wanted = MUSIC.menu;
+    if (state === "menu" || state === "howto" || state === "stats" || state === "settings")
+      wanted = MUSIC.menu;
     else if (state === "countdown" || state === "playing") wanted = MUSIC.game;
   }
   for (const m of [MUSIC.menu, MUSIC.game]) {
@@ -297,7 +608,7 @@ volSfx.forEach((s) => {
 });
 applyVolumes();
 
-// ---- [v1.3.0] SFONDI A TEMA ----
+// ---- SFONDI A TEMA ----
 const STALACTITES = Array.from({ length: 9 }, (_, i) => ({
   x: i * 56 + Math.random() * 20,
   w: 24 + Math.random() * 22,
@@ -386,17 +697,28 @@ function drawBackground() {
   drawTheme(theme, themeFade);
 }
 
-// ---- AZIONI ----
+// ---- DIFFICOLTÀ E PARAMETRI PER MODALITÀ ----
+function progress() {
+  // [v1.4.0] in Zen la difficoltà sale più piano
+  return coinsCaught * (mode === "zen" ? CONFIG.zenRamp : 1);
+}
 function currentPlayerSpeed() {
-  return Math.min(CONFIG.playerSpeed + coinsCaught * CONFIG.playerSpeedGain, CONFIG.playerSpeedMax);
+  return Math.min(CONFIG.playerSpeed + progress() * CONFIG.playerSpeedGain, CONFIG.playerSpeedMax);
 }
 function currentFall() {
-  return CONFIG.itemSpeed + coinsCaught * CONFIG.itemSpeedGain;
+  return CONFIG.itemSpeed + progress() * CONFIG.itemSpeedGain;
+}
+function effBadChance() {
+  return mode === "zen" ? 0 : CONFIG.badChance;
+}
+function effGoldChance() {
+  return mode === "zen" ? CONFIG.zenGoldChance : CONFIG.goldChance;
 }
 function comboMultiplier() {
-  // [v1.3.0]
   return Math.min(CONFIG.comboMax, 1 + Math.floor(streak / CONFIG.comboStep));
 }
+
+// ---- AZIONI ----
 function resetGame() {
   score = 0;
   lives = CONFIG.lives;
@@ -413,11 +735,11 @@ function resetGame() {
   newRecord = false;
   particles = [];
   popups = [];
+  toasts = [];
   shake = 0;
   flash = 0;
   streak = 0;
   goFlash = 0;
-  // [v1.3.0]
   coinsCaught = 0;
   stage = 0;
   shield = false;
@@ -429,8 +751,19 @@ function resetGame() {
   theme = 0;
   prevTheme = 0;
   themeFade = 1;
+  // [v1.4.0]
+  timeLeft = mode === "time" ? CONFIG.timeAttackTime : mode === "zen" ? CONFIG.zenTime : 0;
+  invuln = 0;
+  runTime = 0;
+  spawnIndex = 0;
+  playerHidden = false;
+  run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, ended: false };
+  runUnlocked = [];
 }
 function startGame() {
+  mode = selectedMode;
+  dailyKey = todayKey();
+  dailySeed = hashString("ctc-" + dailyKey);
   resetGame();
   MUSIC.game.currentTime = 0;
   MUSIC.game.playbackRate = 1;
@@ -438,21 +771,49 @@ function startGame() {
   lastCount = 0;
   state = "countdown";
 }
+// [v1.4.0] fine partita: per pipistrello (morte) o per tempo scaduto
+function endRun(reason) {
+  state = "dying";
+  if (reason === "time") {
+    dyingTimer = 0.9;
+    playerHidden = false;
+    wavePending = false;
+    bannerText = t("times_up");
+    bannerTimer = 1.1;
+    SFX.warning();
+  } else {
+    dyingTimer = CONFIG.dyingTime;
+    playerHidden = true;
+    shake = 14;
+    flash = 1;
+    burst(player.x + player.w / 2, player.y + player.h / 2, "#4cc9f0", 30, 220);
+  }
+}
 function finishGame() {
   state = "gameover";
-  newRecord = score > highScore;
-  highScore = Math.max(highScore, score);
-  try {
-    localStorage.setItem("highScore", highScore);
-  } catch (e) {}
+  run.ended = true;
+  stats.games++;
+  stats.playTime += runTime;
+  stats.bestStage = Math.max(stats.bestStage, stage + 1);
+  const prev = mode === "daily" ? stats.daily[dailyKey] || 0 : stats.best[mode] || 0;
+  newRecord = score > prev;
+  if (newRecord) {
+    if (mode === "daily") stats.daily[dailyKey] = score;
+    else stats.best[mode] = score;
+  }
+  checkAch();
+  saveStats();
   if (newRecord) SFX.record();
   else SFX.gameover();
+}
+function goTo(s) {
+  state = s;
 }
 function goToMenu() {
   state = "menu";
 }
 function refreshSoundButton() {
-  el.soundBtn.textContent = "SOUND: " + (soundOn ? "ON" : "OFF");
+  el.soundBtn.textContent = t(soundOn ? "sound_on" : "sound_off");
 }
 function toggleSound() {
   soundOn = !soundOn;
@@ -472,9 +833,6 @@ function toggleFullscreen() {
     document.exitFullscreen();
   }
 }
-refreshSoundButton();
-
-// [v1.3.0] power-up e stage
 function activatePowerup(kind) {
   if (kind === "shield") shield = true;
   if (kind === "magnet") magnetTimer = CONFIG.magnetTime;
@@ -482,16 +840,150 @@ function activatePowerup(kind) {
   SFX.power();
 }
 function startStage() {
+  useRng(100000 + stage);
   prevTheme = theme;
   theme = stage % 3;
   themeFade = 0;
-  waveGap = Math.floor(Math.random() * CONFIG.waveColumns);
+  waveGap = Math.floor(rnd() * CONFIG.waveColumns);
   waveTimer = CONFIG.waveWarning;
   wavePending = true;
-  bannerText = "STAGE " + (stage + 1);
+  bannerText = t("stage") + " " + (stage + 1);
   bannerTimer = CONFIG.waveWarning + 0.4;
   SFX.warning();
   MUSIC.game.playbackRate = Math.min(CONFIG.musicRateMax, 1 + stage * 0.04);
+}
+
+// ---- LINGUA E MENU ----
+function refreshModeUI() {
+  modeBtns.forEach((b) => b.classList.toggle("selected", b.dataset.mode === selectedMode));
+  let d = t("desc_" + selectedMode);
+  if (selectedMode === "daily") d += " (" + todayKey() + ")";
+  el.modeDesc.textContent = d;
+  el.menuRecord.textContent = bestFor(selectedMode);
+}
+function selectMode(m) {
+  if (!MODES.includes(m)) return;
+  selectedMode = m;
+  settings.mode = m;
+  saveSettings();
+  refreshModeUI();
+}
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach((n) => {
+    n.textContent = t(n.dataset.i18n);
+  });
+  langBtns.forEach((b) => b.classList.toggle("selected", b.dataset.lang === lang));
+  refreshSoundButton();
+  refreshModeUI();
+  if (state === "stats") renderStats();
+}
+function setLang(l) {
+  lang = l;
+  settings.lang = l;
+  saveSettings();
+  applyLang();
+}
+
+// ---- STATISTICHE E OBIETTIVI ----
+const ACH = [
+  { id: "first_coin", test: () => stats.coins >= 1 },
+  { id: "coins_100", test: () => stats.coins >= 100 },
+  { id: "coins_500", test: () => stats.coins >= 500 },
+  { id: "combo_10", test: () => stats.bestStreak >= 10 },
+  { id: "combo_20", test: () => stats.bestStreak >= 20 },
+  { id: "gold_3", test: () => run.gold >= 3 },
+  { id: "stage_3", test: () => mode !== "zen" && stage >= 2 },
+  { id: "shield_save", test: () => run.shieldSaves >= 1 },
+  { id: "daily_done", test: () => run.ended && mode === "daily" },
+  { id: "time_40", test: () => run.ended && mode === "time" && score >= 40 }
+];
+function unlock(id) {
+  if (stats.ach[id]) return;
+  stats.ach[id] = true;
+  runUnlocked.push(id);
+  toasts.push({ text: t("ach_unlocked") + ": " + t("ach_" + id), life: 3.2 });
+  SFX.power();
+  saveStats();
+}
+function checkAch() {
+  for (const a of ACH) {
+    if (!stats.ach[a.id] && a.test()) unlock(a.id);
+  }
+}
+function fmtTime(sec) {
+  sec = Math.floor(sec);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return h ? h + "h " + m + "m" : m + "m " + (sec % 60) + "s";
+}
+function addRow(box, label, value, cls) {
+  const r = document.createElement("div");
+  r.className = "row" + (cls ? " " + cls : "");
+  const a = document.createElement("span");
+  a.textContent = label;
+  r.appendChild(a);
+  if (value !== undefined) {
+    const b = document.createElement("strong");
+    b.textContent = value;
+    r.appendChild(b);
+  }
+  box.appendChild(r);
+}
+function renderStats() {
+  const box = el.statsList;
+  box.textContent = "";
+  addRow(box, t("st_games"), stats.games);
+  addRow(box, t("st_time"), fmtTime(stats.playTime));
+  addRow(box, t("st_coins"), stats.coins);
+  addRow(box, t("st_gold"), stats.gold);
+  addRow(box, t("st_powerups"), stats.powerups);
+  addRow(box, t("st_combo"), stats.bestStreak);
+  addRow(box, t("st_stage"), stats.bestStage);
+  addRow(box, t("st_best_classic"), stats.best.classic);
+  addRow(box, t("st_best_daily"), stats.daily[todayKey()] || 0);
+  addRow(box, t("st_best_time"), stats.best.time);
+  addRow(box, t("st_best_zen"), stats.best.zen);
+  const done = ACH.filter((a) => stats.ach[a.id]).length;
+  addRow(box, t("st_ach") + " " + done + "/" + ACH.length, undefined, "section");
+  for (const a of ACH) {
+    const got = !!stats.ach[a.id];
+    addRow(
+      box,
+      (got ? "✓ " : "· ") + t("ach_" + a.id) + " - " + t("achd_" + a.id),
+      undefined,
+      got ? "" : "locked"
+    );
+  }
+}
+function fillGameOver() {
+  el.overMode.textContent = t("mode_" + mode) + (mode === "daily" ? " · " + dailyKey : "");
+  el.finalScore.textContent = score;
+  el.finalRecord.textContent =
+    mode === "daily" ? stats.daily[dailyKey] || 0 : stats.best[mode] || 0;
+  el.newRecord.classList.toggle("hidden", !newRecord);
+  if (runUnlocked.length) {
+    el.overAch.textContent =
+      t("ach_unlocked") + ": " + runUnlocked.map((id) => t("ach_" + id)).join(", ");
+    el.overAch.classList.remove("hidden");
+  } else {
+    el.overAch.classList.add("hidden");
+  }
+}
+let resetArmed = false;
+let resetTimer = null;
+function disarmReset() {
+  resetArmed = false;
+  clearTimeout(resetTimer);
+  el.resetBtn.textContent = t("reset");
+}
+function resetData() {
+  stats = defaultStats();
+  try {
+    localStorage.removeItem("highScore");
+  } catch (e) {}
+  saveStats();
+  refreshModeUI();
 }
 
 // ---- EFFETTI VISIVI ----
@@ -523,16 +1015,18 @@ function updateEffects(dt) {
     p.life -= dt;
   }
   particles = particles.filter((p) => p.life > 0);
-  for (const t of popups) {
-    t.y -= 50 * dt;
-    t.life -= dt;
+  for (const tx of popups) {
+    tx.y -= 50 * dt;
+    tx.life -= dt;
   }
-  popups = popups.filter((t) => t.life > 0);
+  popups = popups.filter((tx) => tx.life > 0);
+  for (const ts of toasts) ts.life -= dt;
+  toasts = toasts.filter((ts) => ts.life > 0);
   shake = Math.max(0, shake - 25 * dt);
   flash = Math.max(0, flash - 2.5 * dt);
   goFlash = Math.max(0, goFlash - dt);
-  bannerTimer = Math.max(0, bannerTimer - dt); // [v1.3.0]
-  themeFade = Math.min(1, themeFade + dt / 1.5); // [v1.3.0]
+  bannerTimer = Math.max(0, bannerTimer - dt);
+  themeFade = Math.min(1, themeFade + dt / 1.5);
 }
 
 // ---- COLLISIONI CON HITBOX RIDOTTE ----
@@ -567,16 +1061,14 @@ function hasSafeLane(cand) {
 }
 function freeX(size = CONFIG.itemSize) {
   for (let i = 0; i < 12; i++) {
-    const x = Math.random() * (canvas.width - size);
+    const x = rnd() * (canvas.width - size);
     if (
       items.every((o) => o.y > CONFIG.itemSize * 1.5 || Math.abs(o.x - x) > CONFIG.itemSize * 1.3)
     )
       return x;
   }
-  return Math.random() * (canvas.width - size);
+  return rnd() * (canvas.width - size);
 }
-
-// [v1.3.0] crea un oggetto di qualsiasi tipo
 function makeItem(x, kind) {
   const bad = kind === "bat" || kind === "zig" || kind === "fast";
   const size = kind === "gold" ? CONFIG.goldSize : CONFIG.itemSize;
@@ -587,7 +1079,7 @@ function makeItem(x, kind) {
     size,
     x,
     y: -size,
-    phase: Math.random() * Math.PI * 2,
+    phase: rnd() * Math.PI * 2,
     age: 0,
     delay: 0,
     baseX: x,
@@ -606,23 +1098,28 @@ function makeItem(x, kind) {
   return it;
 }
 function pickBatKind() {
-  if (stage >= CONFIG.fastFrom && Math.random() < CONFIG.fastChance) return "fast";
-  if (stage >= CONFIG.zigFrom && Math.random() < CONFIG.zigChance) return "zig";
+  if (stage >= CONFIG.fastFrom && rnd() < CONFIG.fastChance) return "fast";
+  if (stage >= CONFIG.zigFrom && rnd() < CONFIG.zigChance) return "zig";
   return "bat";
 }
 function spawnItem() {
-  // power-up: raro, uno alla volta
+  useRng(spawnIndex++);
+  // tiri fissi in anticipo: in Daily ogni nascita ha le stesse decisioni per tutti
+  const rPower = rnd(),
+    rBad = rnd(),
+    rGold = rnd(),
+    rKind = rnd();
+
   if (
     coinsCaught >= CONFIG.powerupFrom &&
     !items.some((o) => o.power) &&
-    Math.random() < CONFIG.powerupChance
+    rPower < CONFIG.powerupChance
   ) {
-    const kinds = ["shield", "magnet", "slow"];
-    items.push(makeItem(freeX(CONFIG.itemSize), kinds[Math.floor(Math.random() * kinds.length)]));
+    const kinds = mode === "zen" ? ["magnet", "slow"] : ["shield", "magnet", "slow"];
+    items.push(makeItem(freeX(CONFIG.itemSize), kinds[Math.floor(rKind * kinds.length)]));
     return;
   }
-  // pipistrello, solo se lascia una corsia libera
-  if (Math.random() < CONFIG.badChance) {
+  if (rBad < effBadChance()) {
     for (let i = 0; i < 12; i++) {
       const cand = makeItem(freeX(CONFIG.itemSize), pickBatKind());
       if (hasSafeLane(cand)) {
@@ -632,23 +1129,25 @@ function spawnItem() {
     }
     // nessuna posizione equa: diventa una moneta
   }
-  const kind = Math.random() < CONFIG.goldChance ? "gold" : "coin";
+  const kind = rGold < effGoldChance() ? "gold" : "coin";
   items.push(makeItem(freeX(kind === "gold" ? CONFIG.goldSize : CONFIG.itemSize), kind));
 }
-// [v1.3.0] ondata: una riga di pipistrelli con una colonna libera (con una moneta dentro)
 function spawnWave() {
+  useRng(200000 + stage);
   const cols = CONFIG.waveColumns;
   const colW = canvas.width / cols;
   for (let c = 0; c < cols; c++) {
-    const cx = c * colW + colW / 2 - CONFIG.itemSize / 2;
-    if (c === waveGap) items.push(makeItem(cx, "coin"));
-    else if (Math.random() < 0.85) items.push(makeItem(cx, "bat"));
+    const x = c * colW + colW / 2 - CONFIG.itemSize / 2;
+    if (mode === "zen")
+      items.push(makeItem(x, rnd() < 0.15 ? "gold" : "coin")); // pioggia di monete
+    else if (c === waveGap) items.push(makeItem(x, "coin"));
+    else if (rnd() < 0.85) items.push(makeItem(x, "bat"));
   }
 }
 
 // ---- PULSANTI HTML ----
 function onClick(id, action) {
-  const b = document.getElementById(id);
+  const b = $(id);
   b.addEventListener("click", () => {
     unlockAudio();
     SFX.click();
@@ -657,6 +1156,12 @@ function onClick(id, action) {
   });
 }
 onClick("btn-start", startGame);
+onClick("btn-howto", () => goTo("howto"));
+onClick("btn-stats", () => goTo("stats"));
+onClick("btn-settings", () => goTo("settings"));
+onClick("btn-howto-back", goToMenu);
+onClick("btn-stats-back", goToMenu);
+onClick("btn-settings-back", goToMenu);
 onClick("btn-sound", toggleSound);
 onClick("btn-resume", togglePause);
 onClick("btn-pause-menu", goToMenu);
@@ -664,20 +1169,55 @@ onClick("btn-retry", startGame);
 onClick("btn-over-menu", goToMenu);
 onClick("btn-pause", togglePause);
 
+modeBtns.forEach((b) =>
+  b.addEventListener("click", () => {
+    unlockAudio();
+    SFX.click();
+    selectMode(b.dataset.mode);
+    b.blur();
+  })
+);
+langBtns.forEach((b) =>
+  b.addEventListener("click", () => {
+    unlockAudio();
+    SFX.click();
+    setLang(b.dataset.lang);
+    b.blur();
+  })
+);
+el.resetBtn.addEventListener("click", () => {
+  unlockAudio();
+  SFX.click();
+  if (!resetArmed) {
+    resetArmed = true;
+    el.resetBtn.textContent = t("reset_confirm");
+    resetTimer = setTimeout(disarmReset, 3000);
+  } else {
+    disarmReset();
+    resetData();
+  }
+  el.resetBtn.blur();
+});
+
+// Mostra la schermata giusta ogni volta che cambia lo stato
 let shownState = null;
 function syncScreens() {
   if (shownState === state) return;
   shownState = state;
-  el.menu.classList.toggle("hidden", state !== "menu");
-  el.pause.classList.toggle("hidden", state !== "paused");
-  el.gameover.classList.toggle("hidden", state !== "gameover");
+  const map = {
+    menu: el.menu,
+    howto: el.howto,
+    stats: el.stats,
+    settings: el.settings,
+    paused: el.pause,
+    gameover: el.gameover
+  };
+  for (const key in map) map[key].classList.toggle("hidden", state !== key);
   el.pauseBtn.classList.toggle("hidden", state !== "playing");
-  if (state === "menu") el.menuRecord.textContent = highScore;
-  if (state === "gameover") {
-    el.finalScore.textContent = score;
-    el.finalRecord.textContent = highScore;
-    el.newRecord.classList.toggle("hidden", !newRecord);
-  }
+  if (state === "menu") refreshModeUI();
+  if (state === "stats") renderStats();
+  if (state === "gameover") fillGameOver();
+  if (state !== "settings") disarmReset();
 }
 
 // ---- INPUT ----
@@ -702,6 +1242,9 @@ window.addEventListener("keydown", (e) => {
   ) {
     togglePause();
   }
+  if (e.key === "Escape" && (state === "howto" || state === "stats" || state === "settings"))
+    goToMenu();
+  if (state === "menu" && e.key >= "1" && e.key <= "4") selectMode(MODES[Number(e.key) - 1]);
   if (e.key === "m" || e.key === "M") toggleSound();
   if (e.key === "f" || e.key === "F") toggleFullscreen();
 });
@@ -771,10 +1314,22 @@ function update(dt) {
 
   updateEffects(dt);
   movePlayer(dt);
-
-  // [v1.3.0] timer dei power-up e ondata in arrivo
+  runTime += dt;
+  invuln = Math.max(0, invuln - dt);
   magnetTimer = Math.max(0, magnetTimer - dt);
   slowTimer = Math.max(0, slowTimer - dt);
+
+  // [v1.4.0] timer di Time Attack e Zen
+  if (mode === "time" || mode === "zen") {
+    timeLeft -= dt;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      endRun("time");
+      return;
+    }
+  }
+
+  // ondata in arrivo
   if (wavePending) {
     waveTimer -= dt;
     if (waveTimer <= 0) {
@@ -783,7 +1338,7 @@ function update(dt) {
     }
   }
 
-  // Nuovi oggetti
+  // nuovi oggetti
   spawnTimer += dt;
   if (spawnTimer >= CONFIG.spawnInterval) {
     spawnTimer = 0;
@@ -791,7 +1346,7 @@ function update(dt) {
     for (let i = 0; i < count; i++) spawnItem();
   }
 
-  // Caduta e movimento
+  // caduta e movimento
   const fall = currentFall() * (slowTimer > 0 ? CONFIG.slowFactor : 1);
   const pcx = player.x + player.w / 2;
   const pcy = player.y + player.h / 2;
@@ -814,7 +1369,8 @@ function update(dt) {
     }
   }
 
-  // Collisioni
+  // collisioni
+  let dead = false;
   const pBox = box(player.x, player.y, player.w, player.h, CONFIG.playerHitbox);
   items = items.filter((it) => {
     if (it.delay > 0) return true;
@@ -826,28 +1382,51 @@ function update(dt) {
         if (shield) {
           // lo scudo assorbe il colpo
           shield = false;
+          run.shieldSaves++;
           SFX.shieldBreak();
           burst(cx, cy, "#4cc9f0", 20);
-          popup(cx, cy, "SHIELD!", "#4cc9f0");
+          popup(cx, cy, t("shield") + "!", "#4cc9f0");
           shake = 6;
+          checkAch();
+        } else if (invuln > 0) {
+          return true; // invulnerabilità: il pipistrello passa
+        } else if (mode === "time") {
+          // Time Attack: perdi secondi
+          timeLeft = Math.max(0, timeLeft - CONFIG.timePenalty);
+          invuln = CONFIG.invulnTime;
+          SFX.hit();
+          burst(cx, cy, "#f72585", 18);
+          popup(pcx, player.y, "-" + CONFIG.timePenalty + "s", "#ff4d6d");
+          shake = 8;
+          flash = 0.5;
+          streak = 0;
         } else {
+          // Classic e Daily: fine partita
           lives--;
           SFX.hit();
           burst(cx, cy, "#f72585", 18);
           shake = 10;
           flash = 0.8;
           streak = 0;
+          if (lives <= 0) dead = true;
         }
       } else if (it.power) {
         activatePowerup(it.kind);
+        stats.powerups++;
+        run.powerups++;
         burst(cx, cy, "#ffffff", 14);
-        popup(cx, cy, it.kind === "slow" ? "SLOW-MO" : it.kind.toUpperCase(), "#ffffff");
+        popup(cx, cy, t(it.kind), "#ffffff");
       } else {
         coinsCaught++;
         streak++;
+        stats.coins++;
+        run.coins++;
+        stats.bestStreak = Math.max(stats.bestStreak, streak);
         const value = (it.kind === "gold" ? CONFIG.goldValue : 1) * comboMultiplier();
         score += value;
         if (it.kind === "gold") {
+          stats.gold++;
+          run.gold++;
           SFX.gold();
           burst(cx, cy, "#fff6a8", 18);
           popup(cx, cy, "+" + value, "#fff6a8");
@@ -860,6 +1439,7 @@ function update(dt) {
           stage = Math.floor(coinsCaught / CONFIG.stageSize);
           startStage();
         }
+        checkAch();
       }
       return false;
     }
@@ -870,13 +1450,7 @@ function update(dt) {
     return true;
   });
 
-  if (lives <= 0) {
-    state = "dying";
-    dyingTimer = CONFIG.dyingTime;
-    shake = 14;
-    flash = 1;
-    burst(player.x + player.w / 2, player.y + player.h / 2, "#4cc9f0", 30, 220);
-  }
+  if (dead) endRun("bat");
 }
 
 // ---- DISEGNO ----
@@ -980,7 +1554,6 @@ function drawItem(it) {
     drawSpriteFx(IMG.coin, it.x, it.y, it.size, it.size, "#ffd60a", spin, 1);
     return;
   }
-  // pipistrelli
   const flap = 1 + 0.15 * Math.sin(gameTime * (it.kind === "fast" ? 24 : 16) + it.phase);
   ctx.save();
   if (it.kind === "zig") {
@@ -1011,8 +1584,8 @@ function drawScene() {
     ctx.translate((Math.random() - 0.5) * shake * 2, (Math.random() - 0.5) * shake * 2);
   }
 
-  // corsia libera durante l'avviso dell'ondata
-  if (wavePending) {
+  // corsia libera durante l'avviso dell'ondata (non in Zen)
+  if (wavePending && mode !== "zen") {
     const colW = canvas.width / CONFIG.waveColumns;
     const cx = waveGap * colW + colW / 2;
     const bob = Math.sin(gameTime * 10) * 4;
@@ -1029,15 +1602,16 @@ function drawScene() {
 
   for (const it of items) drawItem(it);
 
-  if (state !== "dying") {
+  const flicker = invuln > 0 && Math.sin(gameTime * 40) < 0;
+  if (!playerHidden && !flicker) {
     drawSpriteFx(IMG.player, player.x, player.y, player.w, player.h, "#4cc9f0", 1, 1, player.lean);
-    if (shield) {
-      ctx.strokeStyle = "rgba(76, 201, 240, " + (0.6 + 0.4 * Math.sin(gameTime * 6)) + ")";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(player.x + player.w / 2, player.y + player.h / 2, player.w * 0.75, 0, Math.PI * 2);
-      ctx.stroke();
-    }
+  }
+  if (!playerHidden && shield) {
+    ctx.strokeStyle = "rgba(76, 201, 240, " + (0.6 + 0.4 * Math.sin(gameTime * 6)) + ")";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(player.x + player.w / 2, player.y + player.h / 2, player.w * 0.75, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   for (const p of particles) {
@@ -1049,10 +1623,10 @@ function drawScene() {
 
   ctx.font = "bold 18px sans-serif";
   ctx.textAlign = "center";
-  for (const t of popups) {
-    ctx.globalAlpha = Math.max(0, t.life / t.max);
-    ctx.fillStyle = t.color;
-    ctx.fillText(t.text, t.x, t.y);
+  for (const tx of popups) {
+    ctx.globalAlpha = Math.max(0, tx.life / tx.max);
+    ctx.fillStyle = tx.color;
+    ctx.fillText(tx.text, tx.x, tx.y);
   }
   ctx.globalAlpha = 1;
 
@@ -1073,14 +1647,27 @@ function drawScene() {
   ctx.font = "bold 20px sans-serif";
   ctx.textAlign = "left";
   ctx.fillStyle = "#ffd60a";
-  ctx.fillText("Points: " + score, 10, 25);
+  ctx.fillText(t("points") + ": " + score, 10, 25);
   ctx.textAlign = "right";
   ctx.fillStyle = "#4cc9f0";
   ctx.fillText(
-    "Speed: x" + (currentPlayerSpeed() / CONFIG.playerSpeed).toFixed(1),
+    t("speed") + ": x" + (currentPlayerSpeed() / CONFIG.playerSpeed).toFixed(1),
     canvas.width - 10,
     25
   );
+
+  if (mode === "time" || mode === "zen") {
+    const sec = Math.ceil(timeLeft);
+    const urgent = mode === "time" && sec <= 10 && Math.sin(gameTime * 10) > 0;
+    ctx.textAlign = "center";
+    ctx.font = "bold 22px sans-serif";
+    ctx.fillStyle = urgent ? "#ff4d6d" : "#ffffff";
+    ctx.fillText(
+      t("time") + " " + Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"),
+      canvas.width / 2,
+      25
+    );
+  }
 
   ctx.font = "bold 14px sans-serif";
   ctx.textAlign = "left";
@@ -1091,29 +1678,54 @@ function drawScene() {
     ly += 18;
   };
   const mult = comboMultiplier();
-  if (mult > 1) line("COMBO x" + mult + "  (" + streak + ")", "#ffd60a");
-  if (shield) line("SHIELD", "#4cc9f0");
-  if (magnetTimer > 0) line("MAGNET " + magnetTimer.toFixed(1) + "s", "#f72585");
-  if (slowTimer > 0) line("SLOW-MO " + slowTimer.toFixed(1) + "s", "#9d4edd");
-  if (!soundOn) line("MUTED (M)", "rgba(255, 255, 255, 0.7)");
+  if (mult > 1) line(t("combo") + " x" + mult + "  (" + streak + ")", "#ffd60a");
+  if (shield) line(t("shield"), "#4cc9f0");
+  if (magnetTimer > 0) line(t("magnet") + " " + magnetTimer.toFixed(1) + "s", "#f72585");
+  if (slowTimer > 0) line(t("slow") + " " + slowTimer.toFixed(1) + "s", "#9d4edd");
+  if (!soundOn) line(t("muted"), "rgba(255, 255, 255, 0.7)");
   if (DEBUG) {
     ctx.font = "12px monospace";
-    line("stage " + (stage + 1) + "  coins " + coinsCaught + "  items " + items.length, "#fff");
+    line(
+      "mode " +
+        mode +
+        "  stage " +
+        (stage + 1) +
+        "  coins " +
+        coinsCaught +
+        "  items " +
+        items.length,
+      "#fff"
+    );
   }
 
-  // lieve tinta azzurra durante lo slow-mo
+  // avviso obiettivi sbloccati
+  ctx.textAlign = "center";
+  ctx.lineJoin = "round";
+  ctx.font = "bold 15px sans-serif";
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#10002b";
+  toasts.slice(0, 2).forEach((ts, i) => {
+    const y = 62 + i * 22;
+    ctx.globalAlpha = Math.min(1, ts.life);
+    ctx.strokeText(ts.text, canvas.width / 2, y);
+    ctx.fillStyle = "#ffd60a";
+    ctx.fillText(ts.text, canvas.width / 2, y);
+  });
+  ctx.globalAlpha = 1;
+
+  // tinta durante lo slow-mo
   if (slowTimer > 0) {
     ctx.fillStyle = "rgba(157, 78, 221, 0.10)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // lampo rosa alla morte
+  // lampo rosa
   if (flash > 0) {
     ctx.fillStyle = "rgba(247, 37, 133, " + flash * 0.45 + ")";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // striscione dello stage / avviso ondata
+  // striscione dello stage, avviso ondata o tempo scaduto
   if (bannerTimer > 0) {
     ctx.textAlign = "center";
     ctx.lineJoin = "round";
@@ -1124,10 +1736,12 @@ function drawScene() {
     ctx.fillStyle = "#ffd60a";
     ctx.fillText(bannerText, canvas.width / 2, 170);
     if (wavePending && Math.sin(gameTime * 14) > 0) {
+      const zen = mode === "zen";
+      const msg = zen ? t("coin_shower") : t("warning_wave");
       ctx.font = "bold 22px sans-serif";
-      ctx.strokeText("WARNING: WAVE INCOMING", canvas.width / 2, 205);
-      ctx.fillStyle = "#ff4d6d";
-      ctx.fillText("WARNING: WAVE INCOMING", canvas.width / 2, 205);
+      ctx.strokeText(msg, canvas.width / 2, 205);
+      ctx.fillStyle = zen ? "#ffd60a" : "#ff4d6d";
+      ctx.fillText(msg, canvas.width / 2, 205);
     }
   }
 
@@ -1148,9 +1762,9 @@ function drawScene() {
     ctx.font = "bold 90px sans-serif";
     ctx.lineWidth = 8;
     ctx.strokeStyle = "#10002b";
-    ctx.strokeText("GO!", canvas.width / 2, canvas.height / 2);
+    ctx.strokeText(t("go"), canvas.width / 2, canvas.height / 2);
     ctx.fillStyle = "#ffd60a";
-    ctx.fillText("GO!", canvas.width / 2, canvas.height / 2);
+    ctx.fillText(t("go"), canvas.width / 2, canvas.height / 2);
     ctx.globalAlpha = 1;
   }
 }
@@ -1164,9 +1778,9 @@ function draw() {
 
 // ---- GAME LOOP ----
 let last = 0;
-function loop(t) {
-  const dt = Math.min((t - last) / 1000, 0.05);
-  last = t;
+function loop(tm) {
+  const dt = Math.min((tm - last) / 1000, 0.05);
+  last = tm;
   gameTime += dt;
   update(dt);
   syncMusic();
@@ -1175,5 +1789,7 @@ function loop(t) {
   requestAnimationFrame(loop);
 }
 
+// ---- AVVIO ----
 resetGame();
+applyLang();
 requestAnimationFrame(loop);

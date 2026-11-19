@@ -16,6 +16,12 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 
 ## Version history
 
+### v1.4.0
+- Game modes: Classic, Daily Challenge, Time Attack and Zen
+- Statistics and 10 achievements, saved in your browser
+- New How to Play, Stats and Settings screens
+- English and Italian interface
+
 ### v1.3.0
 - Power-ups: shield, coin magnet and slow-mo
 - Rare golden coin (worth 5) and a combo multiplier up to x5
@@ -39,6 +45,7 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 - First public release
 
 ## Roadmap
+- Unlockable skins, new bat types and more achievements 
 - New gameplay mechanics and challenges
 - Visual and audio polish
 - Bug fixes based on player feedback
