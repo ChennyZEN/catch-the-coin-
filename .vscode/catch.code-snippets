@@ -1,0 +1,23 @@
+{
+  "Release notes template": {
+    "scope": "markdown",
+    "prefix": "relnotes",
+    "body": [
+      "## v${1:1.4.0} - ${2:Title}",
+      "",
+      "### New",
+      "- ${3:Feature}",
+      "",
+      "### Notes",
+      "- ${4:Note}",
+      "",
+      "Play online: https://chennyzen.itch.io/catch-the-coin",
+      "Source code is released under the MIT license."
+    ]
+  },
+  "README version block": {
+    "scope": "markdown",
+    "prefix": "readmever",
+    "body": ["### v${1:1.4.0}", "- ${2:Change}", ""]
+  }
+}

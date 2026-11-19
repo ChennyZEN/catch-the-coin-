@@ -1,0 +1,5 @@
+Assets/
+release-notes/
+*.md
+LICENSE
+build/

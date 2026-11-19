@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug game (Live Server)",
+      "url": "http://127.0.0.1:5500/index.html?debug",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Test game (stage corti, power-up frequenti)",
+      "url": "http://127.0.0.1:5500/index.html?test&debug",
+      "webRoot": "${workspaceFolder}"
+    }
+  ]
+}
