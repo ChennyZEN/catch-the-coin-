@@ -12,7 +12,7 @@
     <meta property="og:title" content="Catch the Coin by ChennyZEN" />
     <meta property="og:description" content="Collect coins, dodge the bats. One life only!" />
     <link rel="icon" type="image/png" href="Assets/coin.png" />
-    <link rel="stylesheet" href="style.css?v=1.4.0" />
+    <link rel="stylesheet" href="style.css?v=1.4.1" />
   </head>
   <body>
     <div id="game-wrap">
@@ -22,10 +22,61 @@
 
       <!-- MAIN MENU -->
       <div id="screen-menu" class="screen">
-        <p class="version">v1.4.0</p>
-        <img class="menu-coin" src="Assets/coin.png" alt="" onerror="this.style.display = 'none'" />
+        <p class="version">v1.4.1</p>
+
+        <div class="showcase" aria-hidden="true">
+          <img
+            class="sc sc-zig"
+            src="Assets/bat.png"
+            alt=""
+            onerror="this.style.display = 'none'"
+          />
+          <img
+            class="sc sc-fast"
+            src="Assets/bat.png"
+            alt=""
+            onerror="this.style.display = 'none'"
+          />
+          <img class="sc" src="Assets/coin.png" alt="" onerror="this.style.display = 'none'" />
+          <img
+            class="sc sc-gold"
+            src="Assets/coin.png"
+            alt=""
+            onerror="this.style.display = 'none'"
+          />
+          <img class="sc" src="Assets/player.png" alt="" onerror="this.style.display = 'none'" />
+          <svg class="sc sc-icon" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="17" fill="#10002b" stroke="#4cc9f0" stroke-width="3" />
+            <path
+              d="M20 9 L28 13 V20 Q28 27 20 31 Q12 27 12 20 V13 Z"
+              fill="#4cc9f0"
+              stroke="#fff"
+              stroke-width="1.5"
+            />
+          </svg>
+          <svg class="sc sc-icon" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="17" fill="#10002b" stroke="#f72585" stroke-width="3" />
+            <path
+              d="M13 28 V19 A7 7 0 0 1 27 19 V28"
+              fill="none"
+              stroke="#f72585"
+              stroke-width="4"
+            />
+            <path d="M13 24 V28 M27 24 V28" stroke="#fff" stroke-width="4" />
+          </svg>
+          <svg class="sc sc-icon" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="17" fill="#10002b" stroke="#9d4edd" stroke-width="3" />
+            <circle cx="20" cy="20" r="9" fill="none" stroke="#fff" stroke-width="2" />
+            <path
+              d="M20 20 V14 M20 20 L24 22"
+              stroke="#fff"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+
         <h1>Catch the Coin</h1>
-        <p class="subtitle">by ChennyZEN</p>
         <p class="stat">
           <span data-i18n="record">Record</span>: <strong id="menu-record">0</strong>
         </p>
@@ -48,17 +99,6 @@
           <button id="btn-stats" class="btn btn-small" data-i18n="stats">STATS</button>
           <button id="btn-settings" class="btn btn-small" data-i18n="settings">SETTINGS</button>
         </div>
-        <p class="hint">
-          <span data-i18n="hint1">Arrows / A-D or mouse / touch to move</span><br /><span
-            data-i18n="hint2"
-            >P pause · M mute · F fullscreen · 1-4 mode</span
-          >
-        </p>
-        <div class="credits">
-          <p>Graphics: Kenney.nl (CC0)</p>
-          <p>Menu music: Crystal Cave (song18) - The Cynic Project / pixelsphere.org (CC0)</p>
-          <p>Game music: Enchanted Tiki 86 - cynicmusic.com (CC0)</p>
-        </div>
       </div>
 
       <!-- HOW TO PLAY -->
@@ -75,6 +115,7 @@
           <p data-i18n="htp_combo"></p>
           <p data-i18n="htp_stage"></p>
           <p data-i18n="htp_modes"></p>
+          <p data-i18n="htp_keys"></p>
         </div>
         <button id="btn-howto-back" class="btn btn-primary" data-i18n="back">BACK</button>
       </div>
@@ -106,6 +147,11 @@
           <button class="btn btn-small lang-btn" data-lang="it">Italiano</button>
         </div>
         <button id="btn-reset" class="btn btn-small" data-i18n="reset">RESET DATA</button>
+        <div class="credits-small">
+          <p>Graphics: Kenney.nl (CC0)</p>
+          <p>Menu music: Crystal Cave (song18) - The Cynic Project / pixelsphere.org (CC0)</p>
+          <p>Game music: Enchanted Tiki 86 - cynicmusic.com (CC0)</p>
+        </div>
         <button id="btn-settings-back" class="btn btn-primary" data-i18n="back">BACK</button>
       </div>
 
@@ -143,6 +189,6 @@
       </div>
     </div>
 
-    <script src="game.js?v=1.4.0"></script>
+    <script src="game.js?v=1.4.1"></script>
   </body>
 </html>

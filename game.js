@@ -172,6 +172,7 @@ const I18N = {
     htp_combo: "Combo: x2 at 5 coins in a row, up to x5 at 20.",
     htp_stage: "Every 25 coins: a new stage and a warning wave. Follow the glowing safe lane.",
     htp_modes: "Daily: same sequence for everyone. Time Attack: bats cost 5 seconds. Zen: no bats.",
+    htp_keys: "Keys: P pause · M mute · F fullscreen · 1-4 choose a mode · Esc back.",
     st_games: "Games played",
     st_time: "Time played",
     st_coins: "Coins caught",
@@ -262,6 +263,7 @@ const I18N = {
     htp_stage: "Ogni 25 monete: nuovo stage e ondata di avviso. Segui la corsia sicura luminosa.",
     htp_modes:
       "Giornaliera: stessa sequenza per tutti. Time Attack: i pipistrelli costano 5 secondi. Zen: niente pipistrelli.",
+    htp_keys: "Tasti: P pausa · M muto · F schermo intero · 1-4 scegli modalità · Esc indietro.",
     st_games: "Partite giocate",
     st_time: "Tempo di gioco",
     st_coins: "Monete raccolte",

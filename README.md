@@ -16,6 +16,11 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 
 ## Version history
 
+### v1.4.1 
+- Cleaner main menu: on-screen controls and credits moved to How to Play and Settings
+- New menu artwork showing coins, bats and power-ups
+- Removed the byline from the menu title
+
 ### v1.4.0
 - Game modes: Classic, Daily Challenge, Time Attack and Zen
 - Statistics and 10 achievements, saved in your browser
