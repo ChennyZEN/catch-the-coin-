@@ -12,7 +12,7 @@ foreach ($f in "index.html","style.css","game.js","LICENSE","README.md","CREDITS
 }
 if ((Get-ChildItem -Directory).Name -ccontains "Assets") { Ok "cartella Assets" } else { Bad "cartella Assets non trovata (attenzione alla A maiuscola)" }
 $assetNames = if ((Get-ChildItem -Directory).Name -ccontains "Assets") { (Get-ChildItem Assets -File).Name } else { @() }
-foreach ($f in "player.png","coin.png","bat.png","music_menu.mp3","music_game.mp3") {
+foreach ($f in "player.png","player_green.png","player_pink.png","coin.png","bat.png","music_menu.mp3","music_game.mp3") {
   if ($assetNames -ccontains $f) { Ok "Assets/$f" } else { Bad "manca Assets/$f" }
 }
 

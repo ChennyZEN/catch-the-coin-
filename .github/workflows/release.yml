@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:      # avvio manuale: prova tutto senza pubblicare
+  workflow_dispatch: # avvio manuale: prova tutto senza pubblicare
 
 permissions:
   contents: write
@@ -40,7 +40,7 @@ jobs:
         run: |
           # Linux distingue maiuscole e minuscole, come il server di Itch.io
           for f in index.html style.css game.js LICENSE CREDITS.txt README.md \
-                   Assets/player.png Assets/coin.png Assets/bat.png \
+                   Assets/player.png Assets/player_green.png Assets/player_pink.png Assets/coin.png Assets/bat.png \
                    Assets/music_menu.mp3 Assets/music_game.mp3; do
             [ -f "$f" ] || { echo "Missing file: $f"; exit 1; }
           done

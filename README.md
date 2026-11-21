@@ -16,6 +16,12 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 
 ## Version history
 
+### v1.5.0
+- Unlockable character skins with a new Customize screen (Green at 500 total coins, Pink at 1000)
+- New "Wardrobe" achievement (11 achievements in total)
+- Skins unlocked are shown in Stats and announced in-game
+- Main menu: the artwork is back to a single spinning coin
+
 ### v1.4.1 
 - Cleaner main menu: on-screen controls and credits moved to How to Play and Settings
 - New menu artwork showing coins, bats and power-ups
@@ -50,7 +56,7 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 - First public release
 
 ## Roadmap
-- Unlockable skins, new bat types and more achievements 
+- - Offline play (PWA), code cleanup and more content ideas
 - New gameplay mechanics and challenges
 - Visual and audio polish
 - Bug fixes based on player feedback

@@ -9,15 +9,17 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false; // pixel art nitida
 
-// ?debug mostra le hitbox, ?test accorcia stage e timer e rende comuni i power-up
+// ?debug mostra le hitbox, ?test accorcia stage e timer, ?unlockall sblocca tutte le skin
 const DEBUG = location.search.includes("debug");
 const TEST = location.search.includes("test");
+const UNLOCK_ALL = location.search.includes("unlockall");
 
 const $ = (id) => document.getElementById(id);
 
 // ---- ELEMENTI HTML ----
 const el = {
   menu: $("screen-menu"),
+  skins: $("screen-skins"),
   howto: $("screen-howto"),
   stats: $("screen-stats"),
   settings: $("screen-settings"),
@@ -33,7 +35,9 @@ const el = {
   newRecord: $("new-record"),
   overMode: $("over-mode"),
   overAch: $("over-ach"),
-  statsList: $("stats-list")
+  statsList: $("stats-list"),
+  skinList: $("skin-list"),
+  skinTotal: $("skin-total")
 };
 const modeBtns = document.querySelectorAll(".mode-btn");
 const langBtns = document.querySelectorAll(".lang-btn");
@@ -41,6 +45,13 @@ const volMusic = document.querySelectorAll(".vol-music");
 const volSfx = document.querySelectorAll(".vol-sfx");
 
 const MODES = ["classic", "daily", "time", "zen"];
+
+// [v1.5.0] skin del personaggio: "need" = monete totali per sbloccarla
+const SKINS = [
+  { id: "default", file: "Assets/player.png", need: 0 },
+  { id: "green", file: "Assets/player_green.png", need: 500 },
+  { id: "pink", file: "Assets/player_pink.png", need: 1000 }
+];
 
 // ---- CONFIGURAZIONE ----
 const CONFIG = {
@@ -94,13 +105,13 @@ const CONFIG = {
   waveColumns: 6,
   musicRateMax: 1.25,
 
-  // ---- [v1.4.0] novità ----
-  timeAttackTime: 60, // secondi in Time Attack
-  timePenalty: 5, // secondi persi per ogni pipistrello in Time Attack
-  invulnTime: 1, // secondi di invulnerabilità dopo un colpo in Time Attack
-  zenTime: 90, // secondi in Zen
-  zenGoldChance: 0.15, // monete d'oro più frequenti in Zen
-  zenRamp: 0.5 // in Zen la difficoltà cresce più lentamente
+  // ---- v1.4.0 ----
+  timeAttackTime: 60,
+  timePenalty: 5,
+  invulnTime: 1,
+  zenTime: 90,
+  zenGoldChance: 0.15,
+  zenRamp: 0.5
 };
 if (TEST) {
   Object.assign(CONFIG, {
@@ -123,6 +134,7 @@ const I18N = {
     stats: "STATS",
     settings: "SETTINGS",
     back: "BACK",
+    customize: "CUSTOMIZE",
     record: "Record",
     score: "Score",
     points: "Points",
@@ -133,8 +145,6 @@ const I18N = {
     restart: "RESTART",
     gameover: "Game over",
     new_record: "New Record!",
-    hint1: "Arrows / A-D or mouse / touch to move",
-    hint2: "P pause · M mute · F fullscreen · 1-4 mode",
     music: "Music",
     sfx: "SFX",
     sound_on: "SOUND: ON",
@@ -162,6 +172,14 @@ const I18N = {
     slow: "SLOW-MO",
     time: "TIME",
     ach_unlocked: "Achievement unlocked",
+    skins_total: "Total coins",
+    skin_default: "Classic",
+    skin_green: "Green",
+    skin_pink: "Pink",
+    skin_selected: "Selected",
+    skin_select: "Tap to select",
+    skin_locked: "Locked",
+    skin_unlocked: "Skin unlocked",
     htp_move: "Move: arrows / A-D, or mouse / touch.",
     htp_coin: "Coin: +1 point (times your combo).",
     htp_gold: "Golden coin: +5 points.",
@@ -172,6 +190,7 @@ const I18N = {
     htp_combo: "Combo: x2 at 5 coins in a row, up to x5 at 20.",
     htp_stage: "Every 25 coins: a new stage and a warning wave. Follow the glowing safe lane.",
     htp_modes: "Daily: same sequence for everyone. Time Attack: bats cost 5 seconds. Zen: no bats.",
+    htp_skins: "Skins: unlock new looks with your total coins (500 and 1000) in Customize.",
     htp_keys: "Keys: P pause · M mute · F fullscreen · 1-4 choose a mode · Esc back.",
     st_games: "Games played",
     st_time: "Time played",
@@ -180,6 +199,7 @@ const I18N = {
     st_powerups: "Power-ups",
     st_combo: "Best combo streak",
     st_stage: "Best stage",
+    st_skins: "Skins unlocked",
     st_best_classic: "Best Classic",
     st_best_daily: "Daily best (today)",
     st_best_time: "Best Time Attack",
@@ -204,7 +224,9 @@ const I18N = {
     ach_daily_done: "Daily player",
     achd_daily_done: "Finish a Daily run.",
     ach_time_40: "Speed runner",
-    achd_time_40: "Score 40 points in Time Attack."
+    achd_time_40: "Score 40 points in Time Attack.",
+    ach_all_skins: "Wardrobe",
+    achd_all_skins: "Unlock every skin."
   },
   it: {
     start: "INIZIA",
@@ -212,6 +234,7 @@ const I18N = {
     stats: "STATISTICHE",
     settings: "IMPOSTAZIONI",
     back: "INDIETRO",
+    customize: "PERSONALIZZA",
     record: "Record",
     score: "Punteggio",
     points: "Punti",
@@ -222,8 +245,6 @@ const I18N = {
     restart: "RIGIOCA",
     gameover: "Game over",
     new_record: "Nuovo record!",
-    hint1: "Frecce / A-D o mouse / touch per muoverti",
-    hint2: "P pausa · M muto · F schermo intero · 1-4 modalità",
     music: "Musica",
     sfx: "Effetti",
     sound_on: "SUONO: ON",
@@ -251,6 +272,14 @@ const I18N = {
     slow: "SLOW-MO",
     time: "TEMPO",
     ach_unlocked: "Obiettivo sbloccato",
+    skins_total: "Monete totali",
+    skin_default: "Classica",
+    skin_green: "Verde",
+    skin_pink: "Rosa",
+    skin_selected: "Selezionata",
+    skin_select: "Tocca per scegliere",
+    skin_locked: "Bloccata",
+    skin_unlocked: "Skin sbloccata",
     htp_move: "Movimento: frecce / A-D, oppure mouse / touch.",
     htp_coin: "Moneta: +1 punto (per il tuo combo).",
     htp_gold: "Moneta d'oro: +5 punti.",
@@ -263,6 +292,7 @@ const I18N = {
     htp_stage: "Ogni 25 monete: nuovo stage e ondata di avviso. Segui la corsia sicura luminosa.",
     htp_modes:
       "Giornaliera: stessa sequenza per tutti. Time Attack: i pipistrelli costano 5 secondi. Zen: niente pipistrelli.",
+    htp_skins: "Skin: sblocca nuovi look con le monete totali (500 e 1000) in Personalizza.",
     htp_keys: "Tasti: P pausa · M muto · F schermo intero · 1-4 scegli modalità · Esc indietro.",
     st_games: "Partite giocate",
     st_time: "Tempo di gioco",
@@ -271,6 +301,7 @@ const I18N = {
     st_powerups: "Power-up",
     st_combo: "Miglior serie combo",
     st_stage: "Miglior stage",
+    st_skins: "Skin sbloccate",
     st_best_classic: "Record Classico",
     st_best_daily: "Record Giornaliera (oggi)",
     st_best_time: "Record Time Attack",
@@ -295,14 +326,16 @@ const I18N = {
     ach_daily_done: "Giocatore del giorno",
     achd_daily_done: "Finisci una partita Giornaliera.",
     ach_time_40: "Velocista",
-    achd_time_40: "Fai 40 punti in Time Attack."
+    achd_time_40: "Fai 40 punti in Time Attack.",
+    ach_all_skins: "Guardaroba",
+    achd_all_skins: "Sblocca tutte le skin."
   }
 };
 
 // ---- STATO ----
-let state = "menu"; // menu | howto | stats | settings | countdown | playing | paused | dying | gameover
-let mode = "classic"; // modalità della partita in corso
-let selectedMode = "classic"; // modalità scelta nel menu
+let state = "menu"; // menu | skins | howto | stats | settings | countdown | playing | paused | dying | gameover
+let mode = "classic";
+let selectedMode = "classic";
 let score, lives, player, items, spawnTimer;
 let targetX = null;
 let newRecord = false;
@@ -334,7 +367,6 @@ let theme = 0,
   prevTheme = 0,
   themeFade = 1;
 
-// [v1.4.0]
 let timeLeft = 0,
   invuln = 0,
   runTime = 0,
@@ -342,6 +374,7 @@ let timeLeft = 0,
   playerHidden = false;
 let run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, ended: false };
 let runUnlocked = [];
+let runSkins = []; // [v1.5.0] skin sbloccate in questa partita
 let toasts = [];
 let dailyKey = "",
   dailySeed = 0;
@@ -360,7 +393,8 @@ const settings = {
   sfx: 1,
   sound: true,
   mode: "classic",
-  lang: detectLang()
+  lang: detectLang(),
+  skin: "default"
 };
 try {
   const saved = JSON.parse(localStorage.getItem("ctcSettings"));
@@ -370,6 +404,7 @@ try {
     if (typeof saved.sound === "boolean") settings.sound = saved.sound;
     if (MODES.includes(saved.mode)) settings.mode = saved.mode;
     if (saved.lang === "en" || saved.lang === "it") settings.lang = saved.lang;
+    if (SKINS.some((s) => s.id === saved.skin)) settings.skin = saved.skin;
   }
 } catch (e) {}
 soundOn = settings.sound;
@@ -396,7 +431,8 @@ function defaultStats() {
     bestStage: 0,
     best: { classic: 0, time: 0, zen: 0 },
     daily: {},
-    ach: {}
+    ach: {},
+    skinSeen: {}
   };
 }
 let stats = defaultStats();
@@ -407,16 +443,21 @@ try {
     stats.best = Object.assign({ classic: 0, time: 0, zen: 0 }, s.best);
     stats.daily = s.daily || {};
     stats.ach = s.ach || {};
+    stats.skinSeen = s.skinSeen || {};
   }
-  // recupera il record Classic delle versioni precedenti
   stats.best.classic = Math.max(stats.best.classic, Number(localStorage.getItem("highScore")) || 0);
 } catch (e) {}
+// [v1.5.0] le skin già sbloccate da chi aggiorna non generano l'avviso
+SKINS.forEach((s) => {
+  if (s.need > 0 && stats.coins >= s.need) stats.skinSeen[s.id] = true;
+});
+
 function saveStats() {
   const days = Object.keys(stats.daily).sort();
   while (days.length > 60) delete stats.daily[days.shift()];
   try {
     localStorage.setItem("ctcStats", JSON.stringify(stats));
-    localStorage.setItem("highScore", stats.best.classic); // compatibilità con le versioni precedenti
+    localStorage.setItem("highScore", stats.best.classic);
   } catch (e) {}
 }
 window.addEventListener("pagehide", saveStats);
@@ -453,7 +494,6 @@ function mulberry32(a) {
     return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
   };
 }
-// Ogni "evento" (nascita di un oggetto, ondata...) ha il suo generatore: in Daily è lo stesso per tutti
 function useRng(salt) {
   rnd =
     mode === "daily"
@@ -476,6 +516,12 @@ const IMG = {
   coin: loadImage("Assets/coin.png"),
   bat: loadImage("Assets/bat.png")
 };
+// [v1.5.0] immagini delle skin (la Classic riusa quella del personaggio)
+const SKIN_IMG = { default: IMG.player };
+SKINS.forEach((s) => {
+  if (!SKIN_IMG[s.id]) SKIN_IMG[s.id] = loadImage(s.file);
+});
+
 function drawSprite(img, x, y, w, h, fallbackColor) {
   if (img.loaded) {
     ctx.drawImage(img, x, y, w, h);
@@ -491,6 +537,79 @@ function drawSpriteFx(img, x, y, w, h, fallbackColor, sx = 1, sy = 1, rot = 0) {
   ctx.scale(sx, sy);
   drawSprite(img, -w / 2, -h / 2, w, h, fallbackColor);
   ctx.restore();
+}
+
+// ---- SKIN ----
+function skinUnlocked(s) {
+  return UNLOCK_ALL || stats.coins >= s.need;
+}
+function currentSkin() {
+  const s = SKINS.find((k) => k.id === settings.skin);
+  return s && skinUnlocked(s) ? s : SKINS[0];
+}
+function skinImg() {
+  return SKIN_IMG[currentSkin().id];
+}
+function selectSkin(id) {
+  const s = SKINS.find((k) => k.id === id);
+  if (!s || !skinUnlocked(s)) return;
+  settings.skin = id;
+  saveSettings();
+  renderSkins();
+}
+function checkSkinUnlocks() {
+  for (const s of SKINS) {
+    if (s.need > 0 && stats.coins >= s.need && !stats.skinSeen[s.id]) {
+      stats.skinSeen[s.id] = true;
+      runSkins.push(s.id);
+      toasts.push({ text: t("skin_unlocked") + ": " + t("skin_" + s.id), life: 3.2 });
+      SFX.power();
+      saveStats();
+    }
+  }
+}
+function renderSkins() {
+  el.skinTotal.textContent = t("skins_total") + ": " + stats.coins;
+  const box = el.skinList;
+  box.textContent = "";
+  const cur = currentSkin().id;
+  for (const s of SKINS) {
+    const open = skinUnlocked(s);
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "skin-card" + (s.id === cur ? " selected" : "") + (open ? "" : " locked");
+
+    const img = document.createElement("img");
+    img.src = s.file;
+    img.alt = "";
+    img.onerror = () => {
+      img.style.visibility = "hidden";
+    };
+
+    const info = document.createElement("div");
+    info.className = "skin-info";
+    const name = document.createElement("span");
+    name.className = "skin-name";
+    name.textContent = t("skin_" + s.id);
+    const st = document.createElement("span");
+    st.className = "skin-state";
+    st.textContent =
+      s.id === cur
+        ? t("skin_selected")
+        : open
+          ? t("skin_select")
+          : t("skin_locked") + ": " + Math.min(stats.coins, s.need) + " / " + s.need;
+    info.append(name, st);
+
+    card.append(img, info);
+    card.addEventListener("click", () => {
+      unlockAudio();
+      if (!open) return;
+      SFX.click();
+      selectSkin(s.id);
+    });
+    box.appendChild(card);
+  }
 }
 
 // ---- EFFETTI SONORI (generati dal codice) ----
@@ -566,7 +685,13 @@ const MUSIC = {
 function syncMusic() {
   let wanted = null;
   if (soundOn && audioUnlocked) {
-    if (state === "menu" || state === "howto" || state === "stats" || state === "settings")
+    if (
+      state === "menu" ||
+      state === "skins" ||
+      state === "howto" ||
+      state === "stats" ||
+      state === "settings"
+    )
       wanted = MUSIC.menu;
     else if (state === "countdown" || state === "playing") wanted = MUSIC.game;
   }
@@ -634,17 +759,14 @@ function drawTheme(idx, alpha) {
   ctx.globalAlpha = alpha;
   const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
   if (idx === 0) {
-    // grotta
     g.addColorStop(0, "#10002b");
     g.addColorStop(0.55, "#240046");
     g.addColorStop(1, "#3c096c");
   } else if (idx === 1) {
-    // notte
     g.addColorStop(0, "#03045e");
     g.addColorStop(0.6, "#10002b");
     g.addColorStop(1, "#240046");
   } else {
-    // tempesta
     g.addColorStop(0, "#1b1b2f");
     g.addColorStop(0.6, "#2d2a4a");
     g.addColorStop(1, "#3a3358");
@@ -701,7 +823,6 @@ function drawBackground() {
 
 // ---- DIFFICOLTÀ E PARAMETRI PER MODALITÀ ----
 function progress() {
-  // [v1.4.0] in Zen la difficoltà sale più piano
   return coinsCaught * (mode === "zen" ? CONFIG.zenRamp : 1);
 }
 function currentPlayerSpeed() {
@@ -753,7 +874,6 @@ function resetGame() {
   theme = 0;
   prevTheme = 0;
   themeFade = 1;
-  // [v1.4.0]
   timeLeft = mode === "time" ? CONFIG.timeAttackTime : mode === "zen" ? CONFIG.zenTime : 0;
   invuln = 0;
   runTime = 0;
@@ -761,6 +881,7 @@ function resetGame() {
   playerHidden = false;
   run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, ended: false };
   runUnlocked = [];
+  runSkins = [];
 }
 function startGame() {
   mode = selectedMode;
@@ -773,7 +894,6 @@ function startGame() {
   lastCount = 0;
   state = "countdown";
 }
-// [v1.4.0] fine partita: per pipistrello (morte) o per tempo scaduto
 function endRun(reason) {
   state = "dying";
   if (reason === "time") {
@@ -879,6 +999,7 @@ function applyLang() {
   refreshSoundButton();
   refreshModeUI();
   if (state === "stats") renderStats();
+  if (state === "skins") renderSkins();
 }
 function setLang(l) {
   lang = l;
@@ -898,7 +1019,8 @@ const ACH = [
   { id: "stage_3", test: () => mode !== "zen" && stage >= 2 },
   { id: "shield_save", test: () => run.shieldSaves >= 1 },
   { id: "daily_done", test: () => run.ended && mode === "daily" },
-  { id: "time_40", test: () => run.ended && mode === "time" && score >= 40 }
+  { id: "time_40", test: () => run.ended && mode === "time" && score >= 40 },
+  { id: "all_skins", test: () => SKINS.every((s) => stats.coins >= s.need) }
 ];
 function unlock(id) {
   if (stats.ach[id]) return;
@@ -942,6 +1064,7 @@ function renderStats() {
   addRow(box, t("st_powerups"), stats.powerups);
   addRow(box, t("st_combo"), stats.bestStreak);
   addRow(box, t("st_stage"), stats.bestStage);
+  addRow(box, t("st_skins"), SKINS.filter(skinUnlocked).length + "/" + SKINS.length);
   addRow(box, t("st_best_classic"), stats.best.classic);
   addRow(box, t("st_best_daily"), stats.daily[todayKey()] || 0);
   addRow(box, t("st_best_time"), stats.best.time);
@@ -964,13 +1087,13 @@ function fillGameOver() {
   el.finalRecord.textContent =
     mode === "daily" ? stats.daily[dailyKey] || 0 : stats.best[mode] || 0;
   el.newRecord.classList.toggle("hidden", !newRecord);
-  if (runUnlocked.length) {
-    el.overAch.textContent =
-      t("ach_unlocked") + ": " + runUnlocked.map((id) => t("ach_" + id)).join(", ");
-    el.overAch.classList.remove("hidden");
-  } else {
-    el.overAch.classList.add("hidden");
-  }
+  const lines = [];
+  if (runUnlocked.length)
+    lines.push(t("ach_unlocked") + ": " + runUnlocked.map((id) => t("ach_" + id)).join(", "));
+  if (runSkins.length)
+    lines.push(t("skin_unlocked") + ": " + runSkins.map((id) => t("skin_" + id)).join(", "));
+  el.overAch.textContent = lines.join("\n");
+  el.overAch.classList.toggle("hidden", lines.length === 0);
 }
 let resetArmed = false;
 let resetTimer = null;
@@ -1106,7 +1229,6 @@ function pickBatKind() {
 }
 function spawnItem() {
   useRng(spawnIndex++);
-  // tiri fissi in anticipo: in Daily ogni nascita ha le stesse decisioni per tutti
   const rPower = rnd(),
     rBad = rnd(),
     rGold = rnd(),
@@ -1129,7 +1251,6 @@ function spawnItem() {
         return;
       }
     }
-    // nessuna posizione equa: diventa una moneta
   }
   const kind = rGold < effGoldChance() ? "gold" : "coin";
   items.push(makeItem(freeX(kind === "gold" ? CONFIG.goldSize : CONFIG.itemSize), kind));
@@ -1140,8 +1261,7 @@ function spawnWave() {
   const colW = canvas.width / cols;
   for (let c = 0; c < cols; c++) {
     const x = c * colW + colW / 2 - CONFIG.itemSize / 2;
-    if (mode === "zen")
-      items.push(makeItem(x, rnd() < 0.15 ? "gold" : "coin")); // pioggia di monete
+    if (mode === "zen") items.push(makeItem(x, rnd() < 0.15 ? "gold" : "coin"));
     else if (c === waveGap) items.push(makeItem(x, "coin"));
     else if (rnd() < 0.85) items.push(makeItem(x, "bat"));
   }
@@ -1158,9 +1278,11 @@ function onClick(id, action) {
   });
 }
 onClick("btn-start", startGame);
+onClick("btn-skins", () => goTo("skins"));
 onClick("btn-howto", () => goTo("howto"));
 onClick("btn-stats", () => goTo("stats"));
 onClick("btn-settings", () => goTo("settings"));
+onClick("btn-skins-back", goToMenu);
 onClick("btn-howto-back", goToMenu);
 onClick("btn-stats-back", goToMenu);
 onClick("btn-settings-back", goToMenu);
@@ -1201,13 +1323,13 @@ el.resetBtn.addEventListener("click", () => {
   el.resetBtn.blur();
 });
 
-// Mostra la schermata giusta ogni volta che cambia lo stato
 let shownState = null;
 function syncScreens() {
   if (shownState === state) return;
   shownState = state;
   const map = {
     menu: el.menu,
+    skins: el.skins,
     howto: el.howto,
     stats: el.stats,
     settings: el.settings,
@@ -1217,6 +1339,7 @@ function syncScreens() {
   for (const key in map) map[key].classList.toggle("hidden", state !== key);
   el.pauseBtn.classList.toggle("hidden", state !== "playing");
   if (state === "menu") refreshModeUI();
+  if (state === "skins") renderSkins();
   if (state === "stats") renderStats();
   if (state === "gameover") fillGameOver();
   if (state !== "settings") disarmReset();
@@ -1244,7 +1367,10 @@ window.addEventListener("keydown", (e) => {
   ) {
     togglePause();
   }
-  if (e.key === "Escape" && (state === "howto" || state === "stats" || state === "settings"))
+  if (
+    e.key === "Escape" &&
+    (state === "skins" || state === "howto" || state === "stats" || state === "settings")
+  )
     goToMenu();
   if (state === "menu" && e.key >= "1" && e.key <= "4") selectMode(MODES[Number(e.key) - 1]);
   if (e.key === "m" || e.key === "M") toggleSound();
@@ -1321,7 +1447,6 @@ function update(dt) {
   magnetTimer = Math.max(0, magnetTimer - dt);
   slowTimer = Math.max(0, slowTimer - dt);
 
-  // [v1.4.0] timer di Time Attack e Zen
   if (mode === "time" || mode === "zen") {
     timeLeft -= dt;
     if (timeLeft <= 0) {
@@ -1331,7 +1456,6 @@ function update(dt) {
     }
   }
 
-  // ondata in arrivo
   if (wavePending) {
     waveTimer -= dt;
     if (waveTimer <= 0) {
@@ -1340,7 +1464,6 @@ function update(dt) {
     }
   }
 
-  // nuovi oggetti
   spawnTimer += dt;
   if (spawnTimer >= CONFIG.spawnInterval) {
     spawnTimer = 0;
@@ -1348,7 +1471,6 @@ function update(dt) {
     for (let i = 0; i < count; i++) spawnItem();
   }
 
-  // caduta e movimento
   const fall = currentFall() * (slowTimer > 0 ? CONFIG.slowFactor : 1);
   const pcx = player.x + player.w / 2;
   const pcy = player.y + player.h / 2;
@@ -1371,7 +1493,6 @@ function update(dt) {
     }
   }
 
-  // collisioni
   let dead = false;
   const pBox = box(player.x, player.y, player.w, player.h, CONFIG.playerHitbox);
   items = items.filter((it) => {
@@ -1382,7 +1503,6 @@ function update(dt) {
       const cy = it.y + it.size / 2;
       if (it.bad) {
         if (shield) {
-          // lo scudo assorbe il colpo
           shield = false;
           run.shieldSaves++;
           SFX.shieldBreak();
@@ -1391,9 +1511,8 @@ function update(dt) {
           shake = 6;
           checkAch();
         } else if (invuln > 0) {
-          return true; // invulnerabilità: il pipistrello passa
+          return true;
         } else if (mode === "time") {
-          // Time Attack: perdi secondi
           timeLeft = Math.max(0, timeLeft - CONFIG.timePenalty);
           invuln = CONFIG.invulnTime;
           SFX.hit();
@@ -1403,7 +1522,6 @@ function update(dt) {
           flash = 0.5;
           streak = 0;
         } else {
-          // Classic e Daily: fine partita
           lives--;
           SFX.hit();
           burst(cx, cy, "#f72585", 18);
@@ -1441,6 +1559,7 @@ function update(dt) {
           stage = Math.floor(coinsCaught / CONFIG.stageSize);
           startStage();
         }
+        checkSkinUnlocks(); // [v1.5.0]
         checkAch();
       }
       return false;
@@ -1586,7 +1705,6 @@ function drawScene() {
     ctx.translate((Math.random() - 0.5) * shake * 2, (Math.random() - 0.5) * shake * 2);
   }
 
-  // corsia libera durante l'avviso dell'ondata (non in Zen)
   if (wavePending && mode !== "zen") {
     const colW = canvas.width / CONFIG.waveColumns;
     const cx = waveGap * colW + colW / 2;
@@ -1606,7 +1724,8 @@ function drawScene() {
 
   const flicker = invuln > 0 && Math.sin(gameTime * 40) < 0;
   if (!playerHidden && !flicker) {
-    drawSpriteFx(IMG.player, player.x, player.y, player.w, player.h, "#4cc9f0", 1, 1, player.lean);
+    // [v1.5.0] skin scelta dal giocatore
+    drawSpriteFx(skinImg(), player.x, player.y, player.w, player.h, "#4cc9f0", 1, 1, player.lean);
   }
   if (!playerHidden && shield) {
     ctx.strokeStyle = "rgba(76, 201, 240, " + (0.6 + 0.4 * Math.sin(gameTime * 6)) + ")";
@@ -1700,7 +1819,6 @@ function drawScene() {
     );
   }
 
-  // avviso obiettivi sbloccati
   ctx.textAlign = "center";
   ctx.lineJoin = "round";
   ctx.font = "bold 15px sans-serif";
@@ -1715,19 +1833,16 @@ function drawScene() {
   });
   ctx.globalAlpha = 1;
 
-  // tinta durante lo slow-mo
   if (slowTimer > 0) {
     ctx.fillStyle = "rgba(157, 78, 221, 0.10)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // lampo rosa
   if (flash > 0) {
     ctx.fillStyle = "rgba(247, 37, 133, " + flash * 0.45 + ")";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // striscione dello stage, avviso ondata o tempo scaduto
   if (bannerTimer > 0) {
     ctx.textAlign = "center";
     ctx.lineJoin = "round";
@@ -1747,7 +1862,6 @@ function drawScene() {
     }
   }
 
-  // conto alla rovescia e "GO!"
   ctx.textAlign = "center";
   ctx.lineJoin = "round";
   if (state === "countdown") {
