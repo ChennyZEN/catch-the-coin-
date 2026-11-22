@@ -543,3 +543,63 @@ h2 {
 .over-ach {
   white-space: pre-line;
 }
+/* ---- v1.6.0 ---- */
+
+/* Le schermate compaiono con una breve dissolvenza */
+.screen:not(.hidden) {
+  animation: screen-in 0.25s ease-out;
+}
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Il pulsante di pausa "salta fuori" */
+#btn-pause:not(.hidden) {
+  animation: pop-in 0.25s ease-out;
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Le righe di statistiche e obiettivi entrano a cascata */
+.list .row {
+  animation: row-in 0.3s ease-out both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Moneta del menu: un lieve alone che pulsa */
+.menu-coin {
+  filter: drop-shadow(0 0 8px rgba(255, 214, 10, 0.6));
+}
+
+/* Skin: l'anteprima scelta rimbalza piano, quella sotto il mouse di più */
+.skin-card.selected img {
+  animation: bounce 1.6s ease-in-out infinite;
+}
+.skin-card:not(.locked):hover img {
+  animation: bounce 0.8s ease-in-out infinite;
+}

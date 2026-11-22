@@ -9,10 +9,15 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false; // pixel art nitida
 
-// ?debug mostra le hitbox, ?test accorcia stage e timer, ?unlockall sblocca tutte le skin
+// ?debug mostra le hitbox, ?test accorcia stage e timer, ?unlockall sblocca tutte le skin,
+// ?pwa attiva il service worker anche in locale, ?nopwa lo rimuove
 const DEBUG = location.search.includes("debug");
 const TEST = location.search.includes("test");
 const UNLOCK_ALL = location.search.includes("unlockall");
+// [v1.6.0] chi ha "riduci animazioni" nel sistema non vede scuotimenti e lampi forti
+const REDUCED = !!(
+  window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+);
 
 const $ = (id) => document.getElementById(id);
 
@@ -28,6 +33,7 @@ const el = {
   pauseBtn: $("btn-pause"),
   soundBtn: $("btn-sound"),
   resetBtn: $("btn-reset"),
+  installBtn: $("btn-install"),
   menuRecord: $("menu-record"),
   modeDesc: $("mode-desc"),
   finalScore: $("final-score"),
@@ -46,7 +52,7 @@ const volSfx = document.querySelectorAll(".vol-sfx");
 
 const MODES = ["classic", "daily", "time", "zen"];
 
-// [v1.5.0] skin del personaggio: "need" = monete totali per sbloccarla
+// skin del personaggio: "need" = monete totali per sbloccarla
 const SKINS = [
   { id: "default", file: "Assets/player.png", need: 0 },
   { id: "green", file: "Assets/player_green.png", need: 500 },
@@ -111,7 +117,14 @@ const CONFIG = {
   invulnTime: 1,
   zenTime: 90,
   zenGoldChance: 0.15,
-  zenRamp: 0.5
+  zenRamp: 0.5,
+
+  // ---- [v1.6.0] fluidità ----
+  accel: 26, // reattività del personaggio (più alto = più "secco", più basso = più "scivoloso")
+  followGain: 16, // morbidezza con cui segue mouse/touch
+  slowEase: 6, // velocità con cui entra/esce lo slow-mo
+  scoreEase: 12, // velocità del conteggio animato dei punti
+  lowFpsMs: 24 // sopra questi millisecondi per frame (circa 42 FPS) si riducono gli effetti
 };
 if (TEST) {
   Object.assign(CONFIG, {
@@ -135,6 +148,7 @@ const I18N = {
     settings: "SETTINGS",
     back: "BACK",
     customize: "CUSTOMIZE",
+    install: "INSTALL APP",
     record: "Record",
     score: "Score",
     points: "Points",
@@ -235,6 +249,7 @@ const I18N = {
     settings: "IMPOSTAZIONI",
     back: "INDIETRO",
     customize: "PERSONALIZZA",
+    install: "INSTALLA APP",
     record: "Record",
     score: "Punteggio",
     points: "Punti",
@@ -374,11 +389,18 @@ let timeLeft = 0,
   playerHidden = false;
 let run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, ended: false };
 let runUnlocked = [];
-let runSkins = []; // [v1.5.0] skin sbloccate in questa partita
+let runSkins = [];
 let toasts = [];
 let dailyKey = "",
   dailySeed = 0;
 let rnd = Math.random;
+
+// [v1.6.0] fluidità e qualità adattiva
+let displayScore = 0; // punteggio mostrato (conta in modo animato)
+let slowCur = 1; // fattore di caduta attuale (cambia gradualmente con lo slow-mo)
+let dustTimer = 0;
+let frameAvg = 16.7; // media dei millisecondi per frame
+let lowFx = false; // true = dispositivo lento: meno effetti
 
 // ---- IMPOSTAZIONI E STATISTICHE (salvate nel browser) ----
 function detectLang() {
@@ -447,7 +469,6 @@ try {
   }
   stats.best.classic = Math.max(stats.best.classic, Number(localStorage.getItem("highScore")) || 0);
 } catch (e) {}
-// [v1.5.0] le skin già sbloccate da chi aggiorna non generano l'avviso
 SKINS.forEach((s) => {
   if (s.need > 0 && stats.coins >= s.need) stats.skinSeen[s.id] = true;
 });
@@ -516,7 +537,6 @@ const IMG = {
   coin: loadImage("Assets/coin.png"),
   bat: loadImage("Assets/bat.png")
 };
-// [v1.5.0] immagini delle skin (la Classic riusa quella del personaggio)
 const SKIN_IMG = { default: IMG.player };
 SKINS.forEach((s) => {
   if (!SKIN_IMG[s.id]) SKIN_IMG[s.id] = loadImage(s.file);
@@ -536,6 +556,25 @@ function drawSpriteFx(img, x, y, w, h, fallbackColor, sx = 1, sy = 1, rot = 0) {
   ctx.rotate(rot);
   ctx.scale(sx, sy);
   drawSprite(img, -w / 2, -h / 2, w, h, fallbackColor);
+  ctx.restore();
+}
+// [v1.6.0] alone luminoso: sui dispositivi lenti viene saltato
+function setGlow(color, blur) {
+  if (lowFx) return;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = blur;
+}
+// [v1.6.0] luccichio a quattro punte
+function drawGlint(x, y, r) {
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(x, y - r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.quadraticCurveTo(x, y, x, y + r);
+  ctx.quadraticCurveTo(x, y, x - r, y);
+  ctx.quadraticCurveTo(x, y, x, y - r);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -809,7 +848,7 @@ function drawTheme(idx, alpha) {
       ctx.lineTo(r.x - 3, y + r.l);
     }
     ctx.stroke();
-    if (Math.sin(gameTime * 0.9) * Math.sin(gameTime * 2.3) > 0.93) {
+    if (!REDUCED && Math.sin(gameTime * 0.9) * Math.sin(gameTime * 2.3) > 0.93) {
       ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
@@ -850,7 +889,9 @@ function resetGame() {
     y: canvas.height - CONFIG.playerH - 10,
     w: CONFIG.playerW,
     h: CONFIG.playerH,
-    lean: 0
+    lean: 0,
+    vx: 0, // [v1.6.0] velocità orizzontale (movimento morbido)
+    pop: 0 // [v1.6.0] "pop" quando raccoglie qualcosa
   };
   items = [];
   spawnTimer = 0;
@@ -882,6 +923,9 @@ function resetGame() {
   run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, ended: false };
   runUnlocked = [];
   runSkins = [];
+  displayScore = 0;
+  slowCur = 1;
+  dustTimer = 0;
 }
 function startGame() {
   mode = selectedMode;
@@ -1044,6 +1088,7 @@ function fmtTime(sec) {
 function addRow(box, label, value, cls) {
   const r = document.createElement("div");
   r.className = "row" + (cls ? " " + cls : "");
+  r.style.setProperty("--i", box.children.length); // [v1.6.0] entrata a cascata
   const a = document.createElement("span");
   a.textContent = label;
   r.appendChild(a);
@@ -1113,7 +1158,9 @@ function resetData() {
 
 // ---- EFFETTI VISIVI ----
 function burst(x, y, color, n, power = 160) {
-  for (let i = 0; i < n && particles.length < CONFIG.maxParticles; i++) {
+  const count = lowFx ? Math.ceil(n / 2) : n;
+  const cap = lowFx ? CONFIG.maxParticles / 2 : CONFIG.maxParticles;
+  for (let i = 0; i < count && particles.length < cap; i++) {
     const a = Math.random() * Math.PI * 2;
     const s = power * (0.3 + Math.random() * 0.7);
     const life = 0.4 + Math.random() * 0.4;
@@ -1134,7 +1181,7 @@ function popup(x, y, text, color) {
 }
 function updateEffects(dt) {
   for (const p of particles) {
-    p.vy += 500 * dt;
+    p.vy += (p.g === undefined ? 500 : p.g) * dt;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.life -= dt;
@@ -1152,6 +1199,18 @@ function updateEffects(dt) {
   goFlash = Math.max(0, goFlash - dt);
   bannerTimer = Math.max(0, bannerTimer - dt);
   themeFade = Math.min(1, themeFade + dt / 1.5);
+  // [v1.6.0] pop del personaggio e punteggio che "conta" fino al valore reale
+  player.pop = Math.max(0, player.pop - dt * 5);
+  displayScore += (score - displayScore) * (1 - Math.exp(-CONFIG.scoreEase * dt));
+  if (Math.abs(score - displayScore) < 0.5) displayScore = score;
+}
+
+// [v1.6.0] misura la fluidità: sopra una certa soglia si riducono gli effetti (con isteresi)
+function trackFrame(ms) {
+  if (ms > 250) return; // pausa del tab o primo caricamento
+  frameAvg += (ms - frameAvg) * 0.03;
+  if (!lowFx && frameAvg > CONFIG.lowFpsMs) lowFx = true;
+  else if (lowFx && frameAvg < CONFIG.lowFpsMs * 0.75) lowFx = false;
 }
 
 // ---- COLLISIONI CON HITBOX RIDOTTE ----
@@ -1323,6 +1382,49 @@ el.resetBtn.addEventListener("click", () => {
   el.resetBtn.blur();
 });
 
+// ---- [v1.6.0] PWA: pulsante "Install app" e service worker ----
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  el.installBtn.classList.remove("hidden");
+});
+window.addEventListener("appinstalled", () => {
+  installPrompt = null;
+  el.installBtn.classList.add("hidden");
+});
+el.installBtn.addEventListener("click", async () => {
+  unlockAudio();
+  SFX.click();
+  if (installPrompt) {
+    installPrompt.prompt();
+    try {
+      await installPrompt.userChoice;
+    } catch (e) {}
+    installPrompt = null;
+    el.installBtn.classList.add("hidden");
+  }
+  el.installBtn.blur();
+});
+
+// Il service worker si registra solo nella pagina principale (non dentro l'iframe di Itch.io)
+// e non in locale, per non vedere vecchie versioni mentre sviluppi (usa ?pwa per provarlo, ?nopwa per toglierlo)
+const IS_LOCAL = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+if ("serviceWorker" in navigator) {
+  if (location.search.includes("nopwa")) {
+    navigator.serviceWorker.getRegistrations().then((list) => list.forEach((r) => r.unregister()));
+    if (window.caches) caches.keys().then((keysList) => keysList.forEach((k) => caches.delete(k)));
+  } else if (
+    location.protocol.startsWith("http") &&
+    window.self === window.top &&
+    (!IS_LOCAL || location.search.includes("pwa"))
+  ) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+}
+
 let shownState = null;
 function syncScreens() {
   if (shownState === state) return;
@@ -1393,26 +1495,56 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ---- LOGICA ----
+// [v1.6.0] movimento morbido: il personaggio accelera e frena invece di scattare
 function movePlayer(dt) {
-  const speed = currentPlayerSpeed();
+  const maxSpeed = currentPlayerSpeed();
   let dir = 0;
   if (keys["ArrowLeft"] || keys["a"] || keys["A"]) dir -= 1;
   if (keys["ArrowRight"] || keys["d"] || keys["D"]) dir += 1;
 
-  let moved = 0;
+  let desired = 0; // velocità che il giocatore "vuole"
   if (dir !== 0) {
-    moved = dir * speed * dt;
+    desired = dir * maxSpeed;
     targetX = null;
   } else if (targetX !== null) {
     const diff = targetX - player.x;
-    const step = speed * dt;
-    moved = Math.abs(diff) <= step ? diff : Math.sign(diff) * step;
+    desired =
+      Math.abs(diff) < 0.5 ? 0 : Math.max(-maxSpeed, Math.min(maxSpeed, diff * CONFIG.followGain));
   }
-  player.x += moved;
-  player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
 
-  const ratio = speed * dt > 0 ? Math.max(-1, Math.min(1, moved / (speed * dt))) : 0;
-  player.lean += (ratio * 0.2 - player.lean) * Math.min(1, dt * 12);
+  // avvicinamento esponenziale: uguale su schermi a 60, 120 o 144 Hz
+  player.vx += (desired - player.vx) * (1 - Math.exp(-CONFIG.accel * dt));
+  if (desired === 0 && Math.abs(player.vx) < 1) player.vx = 0;
+  player.x += player.vx * dt;
+
+  if (player.x < 0) {
+    player.x = 0;
+    player.vx = 0;
+  } else if (player.x > canvas.width - player.w) {
+    player.x = canvas.width - player.w;
+    player.vx = 0;
+  }
+
+  // inclinazione proporzionale alla velocità
+  const targetLean = Math.max(-1, Math.min(1, player.vx / maxSpeed)) * 0.2;
+  player.lean += (targetLean - player.lean) * Math.min(1, dt * 12);
+
+  // polvere ai piedi quando corre
+  dustTimer -= dt;
+  if (!lowFx && Math.abs(player.vx) > 260 && dustTimer <= 0) {
+    dustTimer = 0.045;
+    particles.push({
+      x: player.x + player.w / 2 - Math.sign(player.vx) * player.w * 0.3,
+      y: player.y + player.h - 2,
+      vx: -player.vx * 0.12,
+      vy: -15 - Math.random() * 25,
+      g: 0,
+      life: 0.28,
+      max: 0.28,
+      size: 2 + Math.random() * 2,
+      color: "#cbb8ff"
+    });
+  }
 }
 
 function update(dt) {
@@ -1446,6 +1578,9 @@ function update(dt) {
   invuln = Math.max(0, invuln - dt);
   magnetTimer = Math.max(0, magnetTimer - dt);
   slowTimer = Math.max(0, slowTimer - dt);
+  // [v1.6.0] lo slow-mo entra ed esce gradualmente
+  slowCur +=
+    ((slowTimer > 0 ? CONFIG.slowFactor : 1) - slowCur) * (1 - Math.exp(-CONFIG.slowEase * dt));
 
   if (mode === "time" || mode === "zen") {
     timeLeft -= dt;
@@ -1471,7 +1606,7 @@ function update(dt) {
     for (let i = 0; i < count; i++) spawnItem();
   }
 
-  const fall = currentFall() * (slowTimer > 0 ? CONFIG.slowFactor : 1);
+  const fall = currentFall() * slowCur;
   const pcx = player.x + player.w / 2;
   const pcy = player.y + player.h / 2;
   for (const it of items) {
@@ -1534,6 +1669,7 @@ function update(dt) {
         activatePowerup(it.kind);
         stats.powerups++;
         run.powerups++;
+        player.pop = 1.2;
         burst(cx, cy, "#ffffff", 14);
         popup(cx, cy, t(it.kind), "#ffffff");
       } else {
@@ -1544,6 +1680,7 @@ function update(dt) {
         stats.bestStreak = Math.max(stats.bestStreak, streak);
         const value = (it.kind === "gold" ? CONFIG.goldValue : 1) * comboMultiplier();
         score += value;
+        player.pop = it.kind === "gold" ? 1.3 : 1;
         if (it.kind === "gold") {
           stats.gold++;
           run.gold++;
@@ -1559,7 +1696,7 @@ function update(dt) {
           stage = Math.floor(coinsCaught / CONFIG.stageSize);
           startStage();
         }
-        checkSkinUnlocks(); // [v1.5.0]
+        checkSkinUnlocks();
         checkAch();
       }
       return false;
@@ -1592,14 +1729,14 @@ function drawWarningMark(cx) {
   ctx.restore();
 }
 
+// [v1.6.0] power-up: fluttua e ha un anello tratteggiato che gira
 function drawPowerup(it) {
   const cx = it.x + it.size / 2;
-  const cy = it.y + it.size / 2;
+  const cy = it.y + it.size / 2 + Math.sin(gameTime * 4 + it.phase) * 3;
   const r = it.size / 2;
   const color = it.kind === "shield" ? "#4cc9f0" : it.kind === "magnet" ? "#f72585" : "#9d4edd";
   ctx.save();
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 12 + 6 * Math.sin(gameTime * 6 + it.phase);
+  setGlow(color, 12 + 6 * Math.sin(gameTime * 6 + it.phase));
   ctx.fillStyle = "rgba(16, 0, 43, 0.85)";
   ctx.beginPath();
   ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
@@ -1608,6 +1745,18 @@ function drawPowerup(it) {
   ctx.strokeStyle = color;
   ctx.stroke();
   ctx.shadowBlur = 0;
+
+  ctx.save();
+  ctx.setLineDash([4, 6]);
+  ctx.lineDashOffset = -gameTime * 24;
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 7, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
   ctx.lineWidth = 2;
   ctx.strokeStyle = "#fff";
   ctx.fillStyle = color;
@@ -1661,39 +1810,57 @@ function drawItem(it) {
     drawPowerup(it);
     return;
   }
+
   if (it.kind === "gold") {
+    const cx = it.x + it.size / 2;
+    const cy = it.y + it.size / 2;
     ctx.save();
-    ctx.shadowColor = "#ffd60a";
-    ctx.shadowBlur = 12 + 6 * Math.sin(gameTime * 6 + it.phase);
+    setGlow("#ffd60a", 12 + 6 * Math.sin(gameTime * 6 + it.phase));
     const spin = 0.4 + 0.6 * Math.abs(Math.cos(gameTime * 4 + it.phase));
     drawSpriteFx(IMG.coin, it.x, it.y, it.size, it.size, "#ffd60a", spin, 1);
     ctx.restore();
+    // [v1.6.0] due scintille che orbitano attorno alla moneta d'oro
+    if (!lowFx) {
+      ctx.fillStyle = "#fff6a8";
+      for (let k = 0; k < 2; k++) {
+        const a = gameTime * 3 + k * Math.PI + it.phase;
+        ctx.fillRect(
+          cx + Math.cos(a) * it.size * 0.7 - 1.5,
+          cy + Math.sin(a) * it.size * 0.55 - 1.5,
+          3,
+          3
+        );
+      }
+    }
     return;
   }
+
   if (it.kind === "coin") {
     const spin = 0.35 + 0.65 * Math.abs(Math.cos(gameTime * 6 + it.phase));
     drawSpriteFx(IMG.coin, it.x, it.y, it.size, it.size, "#ffd60a", spin, 1);
+    // [v1.6.0] ogni tanto la moneta luccica
+    const gl = Math.sin(gameTime * 5 + it.phase * 3);
+    if (!lowFx && gl > 0.94)
+      drawGlint(it.x + it.size * 0.72, it.y + it.size * 0.25, 2 + (gl - 0.94) * 80);
     return;
   }
+
+  // pipistrelli: battito d'ali, ondeggiamento, inclinazione (zig-zag) e scia (veloce)
   const flap = 1 + 0.15 * Math.sin(gameTime * (it.kind === "fast" ? 24 : 16) + it.phase);
+  let rot = Math.sin(it.age * 6 + it.phase) * 0.12;
+  if (it.kind === "zig") rot += Math.cos(it.age * 3.2 + it.phase) * 0.35;
+
   ctx.save();
-  if (it.kind === "zig") {
-    ctx.shadowColor = "#9bf000";
-    ctx.shadowBlur = 10;
+  if (it.kind === "fast" && !lowFx) {
+    for (let i = 3; i >= 1; i--) {
+      ctx.globalAlpha = 0.28 / i;
+      drawSpriteFx(IMG.bat, it.x, it.y - 9 * i, it.size, it.size, "#ff1744", 1, flap, rot);
+    }
+    ctx.globalAlpha = 1;
   }
-  if (it.kind === "fast") {
-    ctx.shadowColor = "#ff1744";
-    ctx.shadowBlur = 12;
-    ctx.strokeStyle = "rgba(255, 23, 68, 0.5)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(it.x + 8, it.y - 18);
-    ctx.lineTo(it.x + 8, it.y - 4);
-    ctx.moveTo(it.x + it.size - 8, it.y - 18);
-    ctx.lineTo(it.x + it.size - 8, it.y - 4);
-    ctx.stroke();
-  }
-  drawSpriteFx(IMG.bat, it.x, it.y, it.size, it.size, "#f72585", 1, flap);
+  if (it.kind === "zig") setGlow("#9bf000", 10);
+  if (it.kind === "fast") setGlow("#ff1744", 12);
+  drawSpriteFx(IMG.bat, it.x, it.y, it.size, it.size, "#f72585", 1, flap, rot);
   ctx.restore();
 }
 
@@ -1701,7 +1868,7 @@ function drawScene() {
   drawBackground();
 
   ctx.save();
-  if (shake > 0) {
+  if (shake > 0 && !REDUCED) {
     ctx.translate((Math.random() - 0.5) * shake * 2, (Math.random() - 0.5) * shake * 2);
   }
 
@@ -1724,8 +1891,21 @@ function drawScene() {
 
   const flicker = invuln > 0 && Math.sin(gameTime * 40) < 0;
   if (!playerHidden && !flicker) {
-    // [v1.5.0] skin scelta dal giocatore
-    drawSpriteFx(skinImg(), player.x, player.y, player.w, player.h, "#4cc9f0", 1, 1, player.lean);
+    // [v1.6.0] il personaggio respira e si "schiaccia" quando raccoglie (i piedi restano fermi)
+    const breathe = Math.sin(gameTime * 3) * 0.025;
+    const sx = 1 - breathe * 0.5 - player.pop * 0.08;
+    const sy = 1 + breathe + player.pop * 0.15;
+    drawSpriteFx(
+      skinImg(),
+      player.x,
+      player.y - (player.h * (sy - 1)) / 2,
+      player.w,
+      player.h,
+      "#4cc9f0",
+      sx,
+      sy,
+      player.lean
+    );
   }
   if (!playerHidden && shield) {
     ctx.strokeStyle = "rgba(76, 201, 240, " + (0.6 + 0.4 * Math.sin(gameTime * 6)) + ")";
@@ -1768,7 +1948,7 @@ function drawScene() {
   ctx.font = "bold 20px sans-serif";
   ctx.textAlign = "left";
   ctx.fillStyle = "#ffd60a";
-  ctx.fillText(t("points") + ": " + score, 10, 25);
+  ctx.fillText(t("points") + ": " + Math.round(displayScore), 10, 25);
   ctx.textAlign = "right";
   ctx.fillStyle = "#4cc9f0";
   ctx.fillText(
@@ -1817,6 +1997,7 @@ function drawScene() {
         items.length,
       "#fff"
     );
+    line("frame " + frameAvg.toFixed(1) + " ms  lowFx " + lowFx, "#fff");
   }
 
   ctx.textAlign = "center";
@@ -1833,13 +2014,16 @@ function drawScene() {
   });
   ctx.globalAlpha = 1;
 
-  if (slowTimer > 0) {
-    ctx.fillStyle = "rgba(157, 78, 221, 0.10)";
+  if (slowTimer > 0 || slowCur < 0.98) {
+    ctx.fillStyle =
+      "rgba(157, 78, 221, " +
+      0.1 * (1 - (slowCur - CONFIG.slowFactor) / (1 - CONFIG.slowFactor)) +
+      ")";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
   if (flash > 0) {
-    ctx.fillStyle = "rgba(247, 37, 133, " + flash * 0.45 + ")";
+    ctx.fillStyle = "rgba(247, 37, 133, " + flash * (REDUCED ? 0.2 : 0.45) + ")";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
@@ -1895,8 +2079,10 @@ function draw() {
 // ---- GAME LOOP ----
 let last = 0;
 function loop(tm) {
-  const dt = Math.min((tm - last) / 1000, 0.05);
+  const raw = tm - last;
   last = tm;
+  const dt = Math.min(raw / 1000, 0.05);
+  trackFrame(raw);
   gameTime += dt;
   update(dt);
   syncMusic();

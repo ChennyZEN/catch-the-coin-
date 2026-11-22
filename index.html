@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Catch the Coin</title>
     <meta
       name="description"
@@ -11,8 +11,13 @@
     <meta name="theme-color" content="#10002b" />
     <meta property="og:title" content="Catch the Coin by ChennyZEN" />
     <meta property="og:description" content="Collect coins, dodge the bats. One life only!" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Catch the Coin" />
+    <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" href="Assets/coin.png" />
-    <link rel="stylesheet" href="style.css?v=1.5.0" />
+    <link rel="apple-touch-icon" href="Assets/icon-192.png" />
+    <link rel="stylesheet" href="style.css?v=1.6.0" />
   </head>
   <body>
     <div id="game-wrap">
@@ -22,7 +27,7 @@
 
       <!-- MAIN MENU -->
       <div id="screen-menu" class="screen">
-        <p class="version">v1.5.0</p>
+        <p class="version">v1.6.0</p>
         <img class="menu-coin" src="Assets/coin.png" alt="" onerror="this.style.display = 'none'" />
         <h1>Catch the Coin</h1>
         <p class="stat">
@@ -104,6 +109,9 @@
           <button class="btn btn-small lang-btn" data-lang="en">English</button>
           <button class="btn btn-small lang-btn" data-lang="it">Italiano</button>
         </div>
+        <button id="btn-install" class="btn btn-small hidden" data-i18n="install">
+          INSTALL APP
+        </button>
         <button id="btn-reset" class="btn btn-small" data-i18n="reset">RESET DATA</button>
         <div class="credits-small">
           <p>Graphics: Kenney.nl (CC0)</p>
@@ -147,6 +155,6 @@
       </div>
     </div>
 
-    <script src="game.js?v=1.5.0"></script>
+    <script src="game.js?v=1.6.0"></script>
   </body>
 </html>

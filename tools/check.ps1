@@ -7,12 +7,12 @@ function Bad($m)  { Write-Host "ERRORE   $m" -ForegroundColor Red; $script:error
 
 Write-Host "=== File e maiuscole/minuscole (come sul server di Itch.io) ===" -ForegroundColor Cyan
 $rootNames = (Get-ChildItem -File).Name
-foreach ($f in "index.html","style.css","game.js","LICENSE","README.md","CREDITS.txt") {
+foreach ($f in "index.html","style.css","game.js","sw.js","manifest.json","LICENSE","README.md","CREDITS.txt") {
   if ($rootNames -ccontains $f) { Ok $f } else { Bad "manca (o maiuscole diverse): $f" }
 }
 if ((Get-ChildItem -Directory).Name -ccontains "Assets") { Ok "cartella Assets" } else { Bad "cartella Assets non trovata (attenzione alla A maiuscola)" }
 $assetNames = if ((Get-ChildItem -Directory).Name -ccontains "Assets") { (Get-ChildItem Assets -File).Name } else { @() }
-foreach ($f in "player.png","player_green.png","player_pink.png","coin.png","bat.png","music_menu.mp3","music_game.mp3") {
+foreach ($f in "player.png","player_green.png","player_pink.png","coin.png","bat.png","music_menu.mp3","music_game.mp3","icon-192.png","icon-512.png","icon-maskable-512.png") {
   if ($assetNames -ccontains $f) { Ok "Assets/$f" } else { Bad "manca Assets/$f" }
 }
 
@@ -32,12 +32,16 @@ if ($v) {
   if ((Get-Content README.md -Raw) -match ("### v" + [regex]::Escape($v))) { Ok "README ha la sezione v$v" } else { Bad "README senza la sezione v$v" }
   if (Test-Path "release-notes/v$v.md") { Ok "release-notes/v$v.md" } else { Bad "manca release-notes/v$v.md" }
   $q = [regex]::Matches($html, '\?v=(\d+\.\d+\.\d+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
-  if (@($q).Count -eq 0 -or (@($q).Count -eq 1 -and $q -eq $v)) { Ok "parametri ?v= coerenti" } else { Bad "parametri ?v= non coerenti: $($q -join ', ')" }
+  if (@($q).Count -eq 0 -or (@($q).Count -eq 1 -and $q -eq $v)) { Ok "parametri ?v= coerenti" } else { Bad "parametri ?v= non coerenti: $($q -join ', ')" }  $sw = Get-Content sw.js -Raw
+  if ($sw -match 'const VERSION = "(\d+\.\d+\.\d+)"') {
+    if ($Matches[1] -eq $v) { Ok "sw.js: versione coerente" } else { Bad "sw.js ha la versione $($Matches[1]) invece di $v" }
+  } else { Bad "VERSION non trovata in sw.js" }
 }
 
 Write-Host "=== Codice ===" -ForegroundColor Cyan
 if (Select-String -Path game.js -Pattern 'console\.log|debugger' -Quiet) { Warn "game.js contiene console.log o debugger" } else { Ok "nessun console.log o debugger" }
 if (Get-Command node -ErrorAction SilentlyContinue) {
+try { Get-Content manifest.json -Raw | ConvertFrom-Json | Out-Null; Ok "manifest.json valido" } catch { Bad "manifest.json non è un JSON valido" }
   node --check game.js
   if ($LASTEXITCODE -eq 0) { Ok "game.js: sintassi valida" } else { Bad "game.js: errore di sintassi" }
 } else { Warn "Node.js non installato: salto il controllo di sintassi" }

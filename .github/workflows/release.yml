@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch: # avvio manuale: prova tutto senza pubblicare
+  workflow_dispatch: # avvio manuale: prova i controlli e la build senza pubblicare
 
 permissions:
   contents: write
@@ -39,24 +39,29 @@ jobs:
       - name: Check project files
         run: |
           # Linux distingue maiuscole e minuscole, come il server di Itch.io
-          for f in index.html style.css game.js LICENSE CREDITS.txt README.md \
-                   Assets/player.png Assets/player_green.png Assets/player_pink.png Assets/coin.png Assets/bat.png \
-                   Assets/music_menu.mp3 Assets/music_game.mp3; do
+          for f in index.html style.css game.js sw.js manifest.json LICENSE CREDITS.txt README.md \
+                   Assets/player.png Assets/player_green.png Assets/player_pink.png \
+                   Assets/coin.png Assets/bat.png \
+                   Assets/music_menu.mp3 Assets/music_game.mp3 \
+                   Assets/icon-192.png Assets/icon-512.png Assets/icon-maskable-512.png; do
             [ -f "$f" ] || { echo "Missing file: $f"; exit 1; }
           done
-          if grep -En '^(<<<<<<<|=======|>>>>>>>)' index.html style.css game.js README.md CREDITS.txt; then
+          if grep -En '^(<<<<<<<|=======|>>>>>>>)' index.html style.css game.js sw.js README.md CREDITS.txt; then
             echo "Merge conflict markers found"; exit 1
           fi
+          python3 -c "import json; json.load(open('manifest.json'))"
+          grep -q 'const VERSION = "' sw.js
 
       - name: Build the game folder and the zip
         env:
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           mkdir build
-          cp index.html style.css game.js LICENSE CREDITS.txt build/
+          cp index.html style.css game.js sw.js manifest.json LICENSE CREDITS.txt build/
           cp -r Assets build/
-          # allinea il parametro ?v= alla versione
+          # allinea il parametro ?v= e la versione del service worker
           sed -i -E "s/\?v=[0-9]+\.[0-9]+\.[0-9]+/?v=${VERSION}/g" build/index.html
+          sed -i -E "s/const VERSION = \"[0-9]+\.[0-9]+\.[0-9]+\"/const VERSION = \"${VERSION}\"/" build/sw.js
           (cd build && zip -r "../catch-the-coin-v${VERSION}.zip" .)
           unzip -l "catch-the-coin-v${VERSION}.zip"
           unzip -l "catch-the-coin-v${VERSION}.zip" | grep -qE ' index\.html$'
@@ -66,6 +71,12 @@ jobs:
         with:
           name: catch-the-coin-v${{ steps.ver.outputs.version }}
           path: catch-the-coin-v${{ steps.ver.outputs.version }}.zip
+
+      - name: Upload the GitHub Pages artifact
+        if: github.ref_type == 'tag'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build
 
       - name: Create GitHub Release
         if: github.ref_type == 'tag'
@@ -96,3 +107,18 @@ jobs:
           DRY: ${{ github.event_name == 'workflow_dispatch' && '--dry-run' || '' }}
         run: |
           ./butler push $DRY --userversion "$VERSION" build "$ITCH_TARGET:$ITCH_CHANNEL"
+
+  deploy-pages:
+    if: github.ref_type == 'tag'
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

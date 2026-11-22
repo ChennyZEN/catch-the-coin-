@@ -14,7 +14,15 @@ A small browser arcade game: move your character, collect coins and dodge the ba
 ## Run locally
 Open the project folder in VS Code and launch `index.html` with the Live Server extension.
 
-## Version history
+## Version history 
+
+### v1.6.0
+- Installable app (PWA) with offline play, available on the GitHub Pages version
+- Smoother controls: the character now accelerates and brakes softly
+- Adaptive quality: fewer effects on slow devices
+- New animations for the player, coins, golden coin, bats, power-ups and menus
+- "Install app" button in Settings
+**Install it as an app (works offline):** https://chennyzen.github.io/catch-the-coin-/
 
 ### v1.5.0
 - Unlockable character skins with a new Customize screen (Green at 500 total coins, Pink at 1000)

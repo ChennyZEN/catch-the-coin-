@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Generatore icone PWA</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        background: #222;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+      }
+      .row {
+        display: flex;
+        gap: 24px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 20px 0;
+      }
+      figure {
+        margin: 0;
+      }
+      canvas {
+        width: 192px;
+        height: 192px;
+        border: 2px solid #4cc9f0;
+        background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 16px 16px;
+      }
+      button {
+        display: block;
+        margin: 10px auto 0;
+        padding: 10px 16px;
+        font-size: 15px;
+        cursor: pointer;
+      }
+      p {
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Icone PWA</h2>
+    <p>Aprila con Live Server, scarica i 3 file e mettili nella cartella Assets.</p>
+    <div class="row">
+      <figure>
+        <canvas id="c192" width="192" height="192"></canvas>
+        <button data-id="c192" data-name="icon-192.png">Scarica icon-192.png</button>
+      </figure>
+      <figure>
+        <canvas id="c512" width="512" height="512"></canvas>
+        <button data-id="c512" data-name="icon-512.png">Scarica icon-512.png</button>
+      </figure>
+      <figure>
+        <canvas id="cmask" width="512" height="512"></canvas>
+        <button data-id="cmask" data-name="icon-maskable-512.png">
+          Scarica icon-maskable-512.png
+        </button>
+      </figure>
+    </div>
+    <p id="msg"></p>
+
+    <script>
+      function load(src) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = src;
+        });
+      }
+
+      function roundedPath(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
+
+      // Luccichio a quattro punte
+      function sparkle(ctx, x, y, r, color) {
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, y - r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.quadraticCurveTo(x, y, x, y + r);
+        ctx.quadraticCurveTo(x, y, x - r, y);
+        ctx.quadraticCurveTo(x, y, x, y - r);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // maskable = true: sfondo a tutta area e moneta più piccola (zona sicura)
+      function drawIcon(canvas, coin, maskable) {
+        const s = canvas.width;
+        const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, s, s);
+
+        ctx.save();
+        if (!maskable) {
+          roundedPath(ctx, 0, 0, s, s, s * 0.22);
+          ctx.clip();
+        }
+        const bg = ctx.createRadialGradient(s / 2, s * 0.3, s * 0.05, s / 2, s / 2, s * 0.75);
+        bg.addColorStop(0, "#5a189a");
+        bg.addColorStop(1, "#10002b");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, s, s);
+
+        const glow = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s * 0.45);
+        glow.addColorStop(0, "rgba(255, 214, 10, 0.35)");
+        glow.addColorStop(1, "rgba(255, 214, 10, 0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, s, s);
+        ctx.restore();
+
+        const h = s * (maskable ? 0.5 : 0.62);
+        ctx.save();
+        ctx.shadowColor = "#ffd60a";
+        ctx.shadowBlur = s * 0.08;
+        if (coin) {
+          const w = (h * coin.width) / coin.height;
+          ctx.drawImage(coin, (s - w) / 2, (s - h) / 2, w, h);
+        } else {
+          ctx.fillStyle = "#ffd60a";
+          ctx.beginPath();
+          ctx.arc(s / 2, s / 2, h / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        sparkle(
+          ctx,
+          s * (maskable ? 0.66 : 0.72),
+          s * (maskable ? 0.34 : 0.28),
+          s * 0.07,
+          "#ffffff"
+        );
+        sparkle(
+          ctx,
+          s * (maskable ? 0.34 : 0.28),
+          s * (maskable ? 0.66 : 0.72),
+          s * 0.04,
+          "#ffd60a"
+        );
+      }
+
+      load("Assets/coin.png").then((coin) => {
+        drawIcon(document.getElementById("c192"), coin, false);
+        drawIcon(document.getElementById("c512"), coin, false);
+        drawIcon(document.getElementById("cmask"), coin, true);
+        if (!coin) {
+          document.getElementById("msg").textContent =
+            "Non trovo Assets/coin.png: controlla che icons.html sia nella cartella principale, accanto ad Assets.";
+        }
+      });
+
+      document.querySelectorAll("button[data-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          try {
+            const a = document.createElement("a");
+            a.href = document.getElementById(btn.dataset.id).toDataURL("image/png");
+            a.download = btn.dataset.name;
+            a.click();
+          } catch (e) {
+            document.getElementById("msg").textContent =
+              "Apri la pagina con Live Server (non con doppio clic sul file) per poter scaricare le immagini.";
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
