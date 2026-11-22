@@ -65,9 +65,8 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 
 ## Roadmap
 - - Offline play (PWA), code cleanup and more content ideas
-- New gameplay mechanics and challenges
-- Visual and audio polish
-- Bug fixes based on player feedback
+- Windows version (.exe) in v1.6.1
+- More skins, bats and power-ups based on feedback
 
 ## Feedback
 Suggestions and bug reports are welcome on the Itch.io page or through GitHub issues.
