@@ -16,6 +16,10 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 
 ## Version history 
 
+### v1.6.1
+- Windows version (.exe): a portable app, no installation needed 
+**Windows app (.exe, no installation):** download it from the [Releases](https://github.com/ChennyZEN/catch-the-coin-/releases) page or from itch.io.
+
 ### v1.6.0
 - Installable app (PWA) with offline play, available on the GitHub Pages version
 - Smoother controls: the character now accelerates and brakes softly

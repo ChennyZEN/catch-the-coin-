@@ -1,0 +1,40 @@
+{
+  "name": "catch-the-coin",
+  "version": "1.6.1",
+  "description": "Catch the Coin - a one-life arcade game",
+  "author": "ChennyZEN",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable dir --publish never"
+  },
+  "build": {
+    "appId": "com.chennyzen.catchthecoin",
+    "productName": "Catch the Coin",
+    "copyright": "Copyright (c) 2026 ChennyZEN",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "style.css",
+      "game.js",
+      "main.js",
+      "package.json",
+      "Assets/**/*",
+      "LICENSE",
+      "CREDITS.txt"
+    ],
+    "win": {
+      "icon": "Assets/icon-512.png"
+    },
+    "portable": {
+      "artifactName": "catch-the-coin-v${version}-win-portable.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  }
+}

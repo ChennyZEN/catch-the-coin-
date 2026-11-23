@@ -1,5 +1,5 @@
 /* Catch the Coin - service worker (PWA) */
-const VERSION = "1.6.0";
+const VERSION = "1.6.1";
 const CACHE = "catch-the-coin-" + VERSION;
 
 const ASSETS = [

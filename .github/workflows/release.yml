@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch: # avvio manuale: prova i controlli e la build senza pubblicare
+  workflow_dispatch: # avvio manuale: prova controlli e build senza pubblicare
 
 permissions:
   contents: write
@@ -39,17 +39,18 @@ jobs:
       - name: Check project files
         run: |
           # Linux distingue maiuscole e minuscole, come il server di Itch.io
-          for f in index.html style.css game.js sw.js manifest.json LICENSE CREDITS.txt README.md \
+          for f in index.html style.css game.js sw.js manifest.json main.js package.json package-lock.json \
+                   LICENSE CREDITS.txt README.md \
                    Assets/player.png Assets/player_green.png Assets/player_pink.png \
                    Assets/coin.png Assets/bat.png \
                    Assets/music_menu.mp3 Assets/music_game.mp3 \
                    Assets/icon-192.png Assets/icon-512.png Assets/icon-maskable-512.png; do
             [ -f "$f" ] || { echo "Missing file: $f"; exit 1; }
           done
-          if grep -En '^(<<<<<<<|=======|>>>>>>>)' index.html style.css game.js sw.js README.md CREDITS.txt; then
+          if grep -En '^(<<<<<<<|=======|>>>>>>>)' index.html style.css game.js sw.js main.js README.md CREDITS.txt; then
             echo "Merge conflict markers found"; exit 1
           fi
-          python3 -c "import json; json.load(open('manifest.json'))"
+          python3 -c "import json; json.load(open('manifest.json')); json.load(open('package.json'))"
           grep -q 'const VERSION = "' sw.js
 
       - name: Build the game folder and the zip
@@ -122,3 +123,80 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  exe:
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Read the version from index.html
+        id: ver
+        shell: pwsh
+        run: |
+          $html = Get-Content index.html -Raw
+          if ($html -match 'class="version">v(\d+\.\d+\.\d+)') { $v = $Matches[1] } else { throw "Version label not found in index.html" }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Game version: $v"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set the app version
+        run: npm pkg set version=${{ steps.ver.outputs.version }}
+
+      - name: Build the Windows app
+        run: npm run dist
+
+      - name: Collect the exe
+        shell: bash
+        run: |
+          mkdir exe-out
+          cp dist/*.exe exe-out/
+          ls -l exe-out
+
+      - name: Keep the exe as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: catch-the-coin-win-portable-v${{ steps.ver.outputs.version }}
+          path: exe-out
+
+      - name: Keep the unpacked app (for Steam)
+        uses: actions/upload-artifact@v4
+        with:
+          name: catch-the-coin-win-unpacked-v${{ steps.ver.outputs.version }}
+          path: dist/win-unpacked
+          retention-days: 30
+
+      - name: Add the exe to the GitHub Release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" exe-out/*.exe --clobber
+
+      - name: Install butler
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          try { Invoke-WebRequest "https://broth.itch.ovh/butler/windows-amd64/LATEST/archive/default" -OutFile butler.zip }
+          catch { Invoke-WebRequest "https://broth.itch.zone/butler/windows-amd64/LATEST/archive/default" -OutFile butler.zip }
+          Expand-Archive butler.zip -DestinationPath butler-bin -Force
+          .\butler-bin\butler.exe -V
+
+      - name: Push the exe to itch.io
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          .\butler-bin\butler.exe push --userversion "$env:VERSION" exe-out "${env:ITCH_TARGET}:win"

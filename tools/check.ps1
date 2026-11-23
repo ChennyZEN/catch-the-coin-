@@ -7,7 +7,7 @@ function Bad($m)  { Write-Host "ERRORE   $m" -ForegroundColor Red; $script:error
 
 Write-Host "=== File e maiuscole/minuscole (come sul server di Itch.io) ===" -ForegroundColor Cyan
 $rootNames = (Get-ChildItem -File).Name
-foreach ($f in "index.html","style.css","game.js","sw.js","manifest.json","LICENSE","README.md","CREDITS.txt") {
+foreach ($f in "index.html","style.css","game.js","sw.js","manifest.json","main.js","package.json","package-lock.json","LICENSE","README.md","CREDITS.txt") {
   if ($rootNames -ccontains $f) { Ok $f } else { Bad "manca (o maiuscole diverse): $f" }
 }
 if ((Get-ChildItem -Directory).Name -ccontains "Assets") { Ok "cartella Assets" } else { Bad "cartella Assets non trovata (attenzione alla A maiuscola)" }

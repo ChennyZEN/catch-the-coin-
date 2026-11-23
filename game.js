@@ -14,7 +14,7 @@ ctx.imageSmoothingEnabled = false; // pixel art nitida
 const DEBUG = location.search.includes("debug");
 const TEST = location.search.includes("test");
 const UNLOCK_ALL = location.search.includes("unlockall");
-// [v1.6.0] chi ha "riduci animazioni" nel sistema non vede scuotimenti e lampi forti
+// [v1.6.1] chi ha "riduci animazioni" nel sistema non vede scuotimenti e lampi forti
 const REDUCED = !!(
   window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 );
@@ -119,7 +119,7 @@ const CONFIG = {
   zenGoldChance: 0.15,
   zenRamp: 0.5,
 
-  // ---- [v1.6.0] fluidità ----
+  // ---- [v1.6.1] fluidità ----
   accel: 26, // reattività del personaggio (più alto = più "secco", più basso = più "scivoloso")
   followGain: 16, // morbidezza con cui segue mouse/touch
   slowEase: 6, // velocità con cui entra/esce lo slow-mo
@@ -395,7 +395,7 @@ let dailyKey = "",
   dailySeed = 0;
 let rnd = Math.random;
 
-// [v1.6.0] fluidità e qualità adattiva
+// [v1.6.1] fluidità e qualità adattiva
 let displayScore = 0; // punteggio mostrato (conta in modo animato)
 let slowCur = 1; // fattore di caduta attuale (cambia gradualmente con lo slow-mo)
 let dustTimer = 0;
@@ -558,13 +558,13 @@ function drawSpriteFx(img, x, y, w, h, fallbackColor, sx = 1, sy = 1, rot = 0) {
   drawSprite(img, -w / 2, -h / 2, w, h, fallbackColor);
   ctx.restore();
 }
-// [v1.6.0] alone luminoso: sui dispositivi lenti viene saltato
+// [v1.6.1] alone luminoso: sui dispositivi lenti viene saltato
 function setGlow(color, blur) {
   if (lowFx) return;
   ctx.shadowColor = color;
   ctx.shadowBlur = blur;
 }
-// [v1.6.0] luccichio a quattro punte
+// [v1.6.1] luccichio a quattro punte
 function drawGlint(x, y, r) {
   ctx.save();
   ctx.fillStyle = "#fff";
@@ -890,8 +890,8 @@ function resetGame() {
     w: CONFIG.playerW,
     h: CONFIG.playerH,
     lean: 0,
-    vx: 0, // [v1.6.0] velocità orizzontale (movimento morbido)
-    pop: 0 // [v1.6.0] "pop" quando raccoglie qualcosa
+    vx: 0, // [v1.6.1] velocità orizzontale (movimento morbido)
+    pop: 0 // [v1.6.1] "pop" quando raccoglie qualcosa
   };
   items = [];
   spawnTimer = 0;
@@ -1088,7 +1088,7 @@ function fmtTime(sec) {
 function addRow(box, label, value, cls) {
   const r = document.createElement("div");
   r.className = "row" + (cls ? " " + cls : "");
-  r.style.setProperty("--i", box.children.length); // [v1.6.0] entrata a cascata
+  r.style.setProperty("--i", box.children.length); // [v1.6.1] entrata a cascata
   const a = document.createElement("span");
   a.textContent = label;
   r.appendChild(a);
@@ -1199,13 +1199,13 @@ function updateEffects(dt) {
   goFlash = Math.max(0, goFlash - dt);
   bannerTimer = Math.max(0, bannerTimer - dt);
   themeFade = Math.min(1, themeFade + dt / 1.5);
-  // [v1.6.0] pop del personaggio e punteggio che "conta" fino al valore reale
+  // [v1.6.1] pop del personaggio e punteggio che "conta" fino al valore reale
   player.pop = Math.max(0, player.pop - dt * 5);
   displayScore += (score - displayScore) * (1 - Math.exp(-CONFIG.scoreEase * dt));
   if (Math.abs(score - displayScore) < 0.5) displayScore = score;
 }
 
-// [v1.6.0] misura la fluidità: sopra una certa soglia si riducono gli effetti (con isteresi)
+// [v1.6.1] misura la fluidità: sopra una certa soglia si riducono gli effetti (con isteresi)
 function trackFrame(ms) {
   if (ms > 250) return; // pausa del tab o primo caricamento
   frameAvg += (ms - frameAvg) * 0.03;
@@ -1382,7 +1382,7 @@ el.resetBtn.addEventListener("click", () => {
   el.resetBtn.blur();
 });
 
-// ---- [v1.6.0] PWA: pulsante "Install app" e service worker ----
+// ---- [v1.6.1] PWA: pulsante "Install app" e service worker ----
 let installPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
@@ -1495,7 +1495,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ---- LOGICA ----
-// [v1.6.0] movimento morbido: il personaggio accelera e frena invece di scattare
+// [v1.6.1] movimento morbido: il personaggio accelera e frena invece di scattare
 function movePlayer(dt) {
   const maxSpeed = currentPlayerSpeed();
   let dir = 0;
@@ -1578,7 +1578,7 @@ function update(dt) {
   invuln = Math.max(0, invuln - dt);
   magnetTimer = Math.max(0, magnetTimer - dt);
   slowTimer = Math.max(0, slowTimer - dt);
-  // [v1.6.0] lo slow-mo entra ed esce gradualmente
+  // [v1.6.1] lo slow-mo entra ed esce gradualmente
   slowCur +=
     ((slowTimer > 0 ? CONFIG.slowFactor : 1) - slowCur) * (1 - Math.exp(-CONFIG.slowEase * dt));
 
@@ -1729,7 +1729,7 @@ function drawWarningMark(cx) {
   ctx.restore();
 }
 
-// [v1.6.0] power-up: fluttua e ha un anello tratteggiato che gira
+// [v1.6.1] power-up: fluttua e ha un anello tratteggiato che gira
 function drawPowerup(it) {
   const cx = it.x + it.size / 2;
   const cy = it.y + it.size / 2 + Math.sin(gameTime * 4 + it.phase) * 3;
@@ -1819,7 +1819,7 @@ function drawItem(it) {
     const spin = 0.4 + 0.6 * Math.abs(Math.cos(gameTime * 4 + it.phase));
     drawSpriteFx(IMG.coin, it.x, it.y, it.size, it.size, "#ffd60a", spin, 1);
     ctx.restore();
-    // [v1.6.0] due scintille che orbitano attorno alla moneta d'oro
+    // [v1.6.1] due scintille che orbitano attorno alla moneta d'oro
     if (!lowFx) {
       ctx.fillStyle = "#fff6a8";
       for (let k = 0; k < 2; k++) {
@@ -1838,7 +1838,7 @@ function drawItem(it) {
   if (it.kind === "coin") {
     const spin = 0.35 + 0.65 * Math.abs(Math.cos(gameTime * 6 + it.phase));
     drawSpriteFx(IMG.coin, it.x, it.y, it.size, it.size, "#ffd60a", spin, 1);
-    // [v1.6.0] ogni tanto la moneta luccica
+    // [v1.6.1] ogni tanto la moneta luccica
     const gl = Math.sin(gameTime * 5 + it.phase * 3);
     if (!lowFx && gl > 0.94)
       drawGlint(it.x + it.size * 0.72, it.y + it.size * 0.25, 2 + (gl - 0.94) * 80);
@@ -1891,7 +1891,7 @@ function drawScene() {
 
   const flicker = invuln > 0 && Math.sin(gameTime * 40) < 0;
   if (!playerHidden && !flicker) {
-    // [v1.6.0] il personaggio respira e si "schiaccia" quando raccoglie (i piedi restano fermi)
+    // [v1.6.1] il personaggio respira e si "schiaccia" quando raccoglie (i piedi restano fermi)
     const breathe = Math.sin(gameTime * 3) * 0.025;
     const sx = 1 - breathe * 0.5 - player.pop * 0.08;
     const sy = 1 + breathe + player.pop * 0.15;
