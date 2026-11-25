@@ -3,3 +3,4 @@ dist/
 .DS_Store
 Itch-build/
 *.zip
+audit-report.json
