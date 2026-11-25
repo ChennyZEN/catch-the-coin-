@@ -17,7 +17,7 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" href="Assets/coin.png" />
     <link rel="apple-touch-icon" href="Assets/icon-192.png" />
-    <link rel="stylesheet" href="style.css?v=1.6.1" />
+    <link rel="stylesheet" href="style.css?v=1.7.0" />
   </head>
   <body>
     <div id="game-wrap">
@@ -27,7 +27,7 @@
 
       <!-- MAIN MENU -->
       <div id="screen-menu" class="screen">
-        <p class="version">v1.6.1</p>
+        <p class="version">v1.7.0</p>
         <img class="menu-coin" src="Assets/coin.png" alt="" onerror="this.style.display = 'none'" />
         <h1>Catch the Coin</h1>
         <p class="stat">
@@ -76,6 +76,9 @@
           <p data-i18n="htp_slow"></p>
           <p data-i18n="htp_combo"></p>
           <p data-i18n="htp_stage"></p>
+          <p data-i18n="htp_graze"></p>
+          <p data-i18n="htp_fever"></p>
+          <p data-i18n="htp_biomes"></p>
           <p data-i18n="htp_modes"></p>
           <p data-i18n="htp_skins"></p>
           <p data-i18n="htp_keys"></p>
@@ -94,6 +97,7 @@
       <div id="screen-settings" class="screen panel hidden">
         <h2 data-i18n="settings">SETTINGS</h2>
         <button id="btn-sound" class="btn btn-small">SOUND: ON</button>
+        <button id="btn-biomefx" class="btn btn-small">BIOME EFFECTS: ON</button>
         <div class="volumes">
           <label
             ><span data-i18n="music">Music</span>
@@ -155,6 +159,6 @@
       </div>
     </div>
 
-    <script src="game.js?v=1.6.1"></script>
+    <script src="game.js?v=1.7.0"></script>
   </body>
 </html>

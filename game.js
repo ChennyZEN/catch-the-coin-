@@ -9,12 +9,14 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false; // pixel art nitida
 
-// ?debug mostra le hitbox, ?test accorcia stage e timer, ?unlockall sblocca tutte le skin,
-// ?pwa attiva il service worker anche in locale, ?nopwa lo rimuove
+// Parametri di prova nell'indirizzo:
+// ?debug  mostra hitbox e dati          ?test  stage corti, frenesia e vento rapidi
+// ?pattern=stairs  forza lo schema delle ondate (wall, stairs, arrow, snake, pincer, checker)
+// ?unlockall  sblocca le skin             ?pwa / ?nopwa  service worker
 const DEBUG = location.search.includes("debug");
 const TEST = location.search.includes("test");
 const UNLOCK_ALL = location.search.includes("unlockall");
-// [v1.6.1] chi ha "riduci animazioni" nel sistema non vede scuotimenti e lampi forti
+const FORCE_PATTERN = (location.search.match(/[?&]pattern=([a-z]+)/) || [])[1];
 const REDUCED = !!(
   window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 );
@@ -32,6 +34,7 @@ const el = {
   gameover: $("screen-gameover"),
   pauseBtn: $("btn-pause"),
   soundBtn: $("btn-sound"),
+  fxBtn: $("btn-biomefx"),
   resetBtn: $("btn-reset"),
   installBtn: $("btn-install"),
   menuRecord: $("menu-record"),
@@ -51,6 +54,7 @@ const volMusic = document.querySelectorAll(".vol-music");
 const volSfx = document.querySelectorAll(".vol-sfx");
 
 const MODES = ["classic", "daily", "time", "zen"];
+const SCHEMA = 2; // [v1.7.0] versione dei dati salvati
 
 // skin del personaggio: "need" = monete totali per sbloccarla
 const SKINS = [
@@ -63,12 +67,11 @@ const SKINS = [
 const CONFIG = {
   playerSpeed: 500, // velocità iniziale del player (pixel/secondo)
   playerSpeedGain: 8, // quanta velocità in più per ogni moneta raccolta
-  playerSpeedMax: 1000, // limite massimo (alzalo o abbassalo a piacere)
-  spawnInterval: 0.8, // secondi tra un oggetto e l'altro
+  playerSpeedMax: 1000, // limite massimo
+  spawnInterval: 0.8, // secondi tra un oggetto e l'altro (all'inizio)
   itemSpeed: 300, // velocità iniziale di caduta
   itemSpeedGain: 3, // aumento della caduta per ogni moneta raccolta
   lives: 1, // Classic e Daily: una sola vita
-  badChance: 0.5, // probabilità che compaia un pipistrello
   playerW: 50,
   playerH: 40,
   itemSize: 30,
@@ -83,11 +86,11 @@ const CONFIG = {
   laneMargin: 10,
   burstChance: 0,
   countdown: 3,
-  dyingTime: 0.7,
+  dyingTime: 0.9, // [v1.7.0] la morte dura un po' di più (al rallentatore)
   maxParticles: 200,
 
   // ---- v1.3.0 ----
-  stageSize: 25,
+  stageSize: 20, // [v1.7.0] ogni quante monete cambia stage (prima 25)
   comboStep: 5,
   comboMax: 5,
   goldChance: 0.08,
@@ -108,7 +111,7 @@ const CONFIG = {
   fastMul: 1.6,
   fastWarning: 0.6,
   waveWarning: 1.6,
-  waveColumns: 6,
+  waveColumns: 6, // non modificare: gli schemi delle ondate usano 6 colonne
   musicRateMax: 1.25,
 
   // ---- v1.4.0 ----
@@ -119,12 +122,64 @@ const CONFIG = {
   zenGoldChance: 0.15,
   zenRamp: 0.5,
 
-  // ---- [v1.6.1] fluidità ----
-  accel: 26, // reattività del personaggio (più alto = più "secco", più basso = più "scivoloso")
-  followGain: 16, // morbidezza con cui segue mouse/touch
-  slowEase: 6, // velocità con cui entra/esce lo slow-mo
-  scoreEase: 12, // velocità del conteggio animato dei punti
-  lowFpsMs: 24 // sopra questi millisecondi per frame (circa 42 FPS) si riducono gli effetti
+  // ---- v1.6.0 ----
+  accel: 26,
+  followGain: 16,
+  slowEase: 6,
+  scoreEase: 12,
+  lowFpsMs: 24,
+
+  // ---- [v1.7.0] nuova curva di difficoltà ----
+  badStart: 0.28, // probabilità di pipistrello all'inizio
+  badRamp: 0.012, // aumento per moneta raccolta
+  badMax: 0.5, // massimo fino allo stage 5
+  badLate: 0.55, // dallo stage 6 in poi
+  spawnMin: 0.55, // l'intervallo tra oggetti scende fino a qui
+  spawnRamp: 0.0035, // di quanto scende per moneta
+  fallGainFrom: 60, // dopo questa moneta la caduta accelera più piano
+  fallGainLate: 1.8,
+  calmTime: 2.5, // respiro senza pipistrelli dopo un'ondata
+
+  // ---- [v1.7.0] near-miss (sfioro) ----
+  grazeDist: 16, // distanza massima (px) per contare come sfioro
+  grazePoints: 2,
+  grazeChainMax: 3, // bonus massimo della catena di sfiori
+  grazeChainTime: 2.0, // secondi per concatenare gli sfiori
+  grazeFever: 0.1,
+  grazeTimeBonus: 0.5, // secondi guadagnati in Time Attack
+  timeCap: 99,
+
+  // ---- [v1.7.0] frenesia ----
+  feverCoin: 0.05,
+  feverGold: 0.2,
+  feverMissLoss: 0.08,
+  feverTime: 7,
+  feverMult: 2,
+  feverMagnetMul: 1.6,
+  feverSpawnMul: 0.8,
+  feverBadAdd: 0.05,
+  feverGoldMul: 2.5,
+  feverMusicRate: 0.08,
+
+  // ---- [v1.7.0] ambienti ----
+  nightLight: 230, // raggio di luce attorno al personaggio (Notte)
+  nightDark: 0.72, // quanto è scuro il resto (0-1)
+  windEveryMin: 7,
+  windEveryMax: 11,
+  windWarn: 1.0,
+  windTime: 1.6,
+  windBase: 150,
+  windPerStage: 8,
+
+  // ---- [v1.7.0] ondate disegnate a mano ----
+  waveRowTime: [0.6, 0.5, 0.42], // secondi tra una riga e l'altra (per livello di difficoltà)
+
+  // ---- [v1.7.0] impatto ----
+  hitStopDeath: 0.12,
+  hitStopGold: 0.04,
+  hitStopFever: 0.08,
+  hitStopShield: 0.06,
+  deathSlow: 0.4
 };
 if (TEST) {
   Object.assign(CONFIG, {
@@ -135,7 +190,12 @@ if (TEST) {
     zigFrom: 0,
     fastFrom: 0,
     timeAttackTime: 20,
-    zenTime: 20
+    zenTime: 20,
+    feverCoin: 0.25,
+    feverGold: 0.5,
+    windEveryMin: 2,
+    windEveryMax: 3,
+    calmTime: 1
   });
 }
 
@@ -163,6 +223,8 @@ const I18N = {
     sfx: "SFX",
     sound_on: "SOUND: ON",
     sound_off: "SOUND: OFF",
+    fx_on: "BIOME EFFECTS: ON",
+    fx_off: "BIOME EFFECTS: OFF",
     language: "Language",
     reset: "RESET DATA",
     reset_confirm: "CLICK AGAIN TO CONFIRM",
@@ -185,6 +247,16 @@ const I18N = {
     magnet: "MAGNET",
     slow: "SLOW-MO",
     time: "TIME",
+    close: "CLOSE!",
+    fever: "FEVER",
+    fever_banner: "FEVER!",
+    wind: "WIND!",
+    pat_wall: "WALL",
+    pat_stairs: "STAIRS",
+    pat_arrow: "ARROWHEAD",
+    pat_snake: "SNAKE",
+    pat_pincer: "PINCER",
+    pat_checker: "CHECKERBOARD",
     ach_unlocked: "Achievement unlocked",
     skins_total: "Total coins",
     skin_default: "Classic",
@@ -202,8 +274,15 @@ const I18N = {
     htp_magnet: "Magnet: pulls coins toward you.",
     htp_slow: "Slow-mo: slows falling objects.",
     htp_combo: "Combo: x2 at 5 coins in a row, up to x5 at 20.",
-    htp_stage: "Every 25 coins: a new stage and a warning wave. Follow the glowing safe lane.",
-    htp_modes: "Daily: same sequence for everyone. Time Attack: bats cost 5 seconds. Zen: no bats.",
+    htp_stage:
+      "Every 20 coins: a new stage and a named warning wave. Follow the coin trail: it shows the safe path.",
+    htp_graze:
+      "Near-miss: pass close to a bat without touching it for bonus points (and extra time in Time Attack).",
+    htp_fever:
+      "Fever: coins, golden coins and near-misses fill the bar at the top. When full: double points, a stronger magnet and more action for a few seconds.",
+    htp_biomes:
+      "Night limits your vision (everything glows). Storm brings wind gusts: watch the arrows. Biome effects can be turned off in Settings (always on in Daily).",
+    htp_modes: "Daily: same seed for everyone. Time Attack: bats cost 5 seconds. Zen: no bats.",
     htp_skins: "Skins: unlock new looks with your total coins (500 and 1000) in Customize.",
     htp_keys: "Keys: P pause · M mute · F fullscreen · 1-4 choose a mode · Esc back.",
     st_games: "Games played",
@@ -214,6 +293,9 @@ const I18N = {
     st_combo: "Best combo streak",
     st_stage: "Best stage",
     st_skins: "Skins unlocked",
+    st_grazes: "Near-misses",
+    st_best_graze: "Best near-misses (run)",
+    st_fevers: "Fevers triggered",
     st_best_classic: "Best Classic",
     st_best_daily: "Daily best (today)",
     st_best_time: "Best Time Attack",
@@ -240,7 +322,15 @@ const I18N = {
     ach_time_40: "Speed runner",
     achd_time_40: "Score 40 points in Time Attack.",
     ach_all_skins: "Wardrobe",
-    achd_all_skins: "Unlock every skin."
+    achd_all_skins: "Unlock every skin.",
+    ach_graze_25: "Daredevil",
+    achd_graze_25: "Get 25 near-misses in total.",
+    ach_graze_run: "Razor's edge",
+    achd_graze_run: "Get 10 near-misses in one run.",
+    ach_fever_1: "Feeling the heat",
+    achd_fever_1: "Trigger Fever for the first time.",
+    ach_fever_10: "Fever master",
+    achd_fever_10: "Trigger Fever 10 times in total."
   },
   it: {
     start: "INIZIA",
@@ -264,6 +354,8 @@ const I18N = {
     sfx: "Effetti",
     sound_on: "SUONO: ON",
     sound_off: "SUONO: OFF",
+    fx_on: "EFFETTI AMBIENTE: ON",
+    fx_off: "EFFETTI AMBIENTE: OFF",
     language: "Lingua",
     reset: "AZZERA DATI",
     reset_confirm: "CLICCA ANCORA PER CONFERMARE",
@@ -286,6 +378,16 @@ const I18N = {
     magnet: "MAGNETE",
     slow: "SLOW-MO",
     time: "TEMPO",
+    close: "SFIORO!",
+    fever: "FRENESIA",
+    fever_banner: "FRENESIA!",
+    wind: "VENTO!",
+    pat_wall: "MURO",
+    pat_stairs: "SCALE",
+    pat_arrow: "FRECCIA",
+    pat_snake: "SERPENTE",
+    pat_pincer: "TENAGLIA",
+    pat_checker: "SCACCHIERA",
     ach_unlocked: "Obiettivo sbloccato",
     skins_total: "Monete totali",
     skin_default: "Classica",
@@ -304,9 +406,16 @@ const I18N = {
     htp_magnet: "Magnete: attira le monete verso di te.",
     htp_slow: "Slow-mo: rallenta gli oggetti che cadono.",
     htp_combo: "Combo: x2 a 5 monete di fila, fino a x5 a 20.",
-    htp_stage: "Ogni 25 monete: nuovo stage e ondata di avviso. Segui la corsia sicura luminosa.",
+    htp_stage:
+      "Ogni 20 monete: nuovo stage e ondata di avviso con un nome. Segui la scia di monete: mostra il percorso sicuro.",
+    htp_graze:
+      "Sfioro: passa vicino a un pipistrello senza toccarlo per punti bonus (e tempo extra in Time Attack).",
+    htp_fever:
+      "Frenesia: monete, monete d'oro e sfiori riempiono la barra in alto. Quando è piena: punti doppi, magnete più forte e più azione per qualche secondo.",
+    htp_biomes:
+      "La Notte riduce la visuale (tutto brilla). La Tempesta porta raffiche di vento: guarda le frecce. Gli effetti ambiente si disattivano nelle Impostazioni (sempre attivi nella Giornaliera).",
     htp_modes:
-      "Giornaliera: stessa sequenza per tutti. Time Attack: i pipistrelli costano 5 secondi. Zen: niente pipistrelli.",
+      "Giornaliera: stesso seme per tutti. Time Attack: i pipistrelli costano 5 secondi. Zen: niente pipistrelli.",
     htp_skins: "Skin: sblocca nuovi look con le monete totali (500 e 1000) in Personalizza.",
     htp_keys: "Tasti: P pausa · M muto · F schermo intero · 1-4 scegli modalità · Esc indietro.",
     st_games: "Partite giocate",
@@ -317,6 +426,9 @@ const I18N = {
     st_combo: "Miglior serie combo",
     st_stage: "Miglior stage",
     st_skins: "Skin sbloccate",
+    st_grazes: "Sfiori",
+    st_best_graze: "Miglior numero di sfiori (partita)",
+    st_fevers: "Frenesie attivate",
     st_best_classic: "Record Classico",
     st_best_daily: "Record Giornaliera (oggi)",
     st_best_time: "Record Time Attack",
@@ -343,7 +455,15 @@ const I18N = {
     ach_time_40: "Velocista",
     achd_time_40: "Fai 40 punti in Time Attack.",
     ach_all_skins: "Guardaroba",
-    achd_all_skins: "Sblocca tutte le skin."
+    achd_all_skins: "Sblocca tutte le skin.",
+    ach_graze_25: "Temerario",
+    achd_graze_25: "Fai 25 sfiori in totale.",
+    ach_graze_run: "Sul filo",
+    achd_graze_run: "Fai 10 sfiori in una partita.",
+    ach_fever_1: "Che caldo!",
+    achd_fever_1: "Attiva la Frenesia per la prima volta.",
+    ach_fever_10: "Maestro della frenesia",
+    achd_fever_10: "Attiva la Frenesia 10 volte in totale."
   }
 };
 
@@ -387,7 +507,7 @@ let timeLeft = 0,
   runTime = 0,
   spawnIndex = 0,
   playerHidden = false;
-let run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, ended: false };
+let run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, grazes: 0, fevers: 0, ended: false };
 let runUnlocked = [];
 let runSkins = [];
 let toasts = [];
@@ -395,12 +515,32 @@ let dailyKey = "",
   dailySeed = 0;
 let rnd = Math.random;
 
-// [v1.6.1] fluidità e qualità adattiva
-let displayScore = 0; // punteggio mostrato (conta in modo animato)
-let slowCur = 1; // fattore di caduta attuale (cambia gradualmente con lo slow-mo)
+let displayScore = 0;
+let slowCur = 1;
 let dustTimer = 0;
-let frameAvg = 16.7; // media dei millisecondi per frame
-let lowFx = false; // true = dispositivo lento: meno effetti
+let frameAvg = 16.7;
+let lowFx = false;
+
+// [v1.7.0]
+let feverMeter = 0,
+  feverTimer = 0,
+  feverFlash = 0;
+let grazeChain = 0,
+  grazeTimer = 0;
+let calmTimer = 0;
+let wavePlan = null;
+let windState = "idle",
+  windDir = 1,
+  windT = 0,
+  windTimer = 6,
+  windCur = 0,
+  windTarget = 0,
+  gustIndex = 0;
+let nightAmt = 0;
+let hitStop = 0,
+  punch = 0;
+let shards = [],
+  rings = [];
 
 // ---- IMPOSTAZIONI E STATISTICHE (salvate nel browser) ----
 function detectLang() {
@@ -416,7 +556,8 @@ const settings = {
   sound: true,
   mode: "classic",
   lang: detectLang(),
-  skin: "default"
+  skin: "default",
+  biomeFx: true
 };
 try {
   const saved = JSON.parse(localStorage.getItem("ctcSettings"));
@@ -424,6 +565,7 @@ try {
     if (typeof saved.music === "number") settings.music = Math.min(1, Math.max(0, saved.music));
     if (typeof saved.sfx === "number") settings.sfx = Math.min(1, Math.max(0, saved.sfx));
     if (typeof saved.sound === "boolean") settings.sound = saved.sound;
+    if (typeof saved.biomeFx === "boolean") settings.biomeFx = saved.biomeFx;
     if (MODES.includes(saved.mode)) settings.mode = saved.mode;
     if (saved.lang === "en" || saved.lang === "it") settings.lang = saved.lang;
     if (SKINS.some((s) => s.id === saved.skin)) settings.skin = saved.skin;
@@ -444,6 +586,7 @@ function t(key) {
 
 function defaultStats() {
   return {
+    schema: SCHEMA,
     games: 0,
     playTime: 0,
     coins: 0,
@@ -451,6 +594,9 @@ function defaultStats() {
     powerups: 0,
     bestStreak: 0,
     bestStage: 0,
+    grazes: 0,
+    fevers: 0,
+    bestRunGrazes: 0,
     best: { classic: 0, time: 0, zen: 0 },
     daily: {},
     ach: {},
@@ -458,14 +604,33 @@ function defaultStats() {
   };
 }
 let stats = defaultStats();
+// [v1.7.0] caricamento con versione dello schema, copia di sicurezza e migrazione
 try {
-  const s = JSON.parse(localStorage.getItem("ctcStats"));
-  if (s) {
-    stats = Object.assign(defaultStats(), s);
-    stats.best = Object.assign({ classic: 0, time: 0, zen: 0 }, s.best);
-    stats.daily = s.daily || {};
-    stats.ach = s.ach || {};
-    stats.skinSeen = s.skinSeen || {};
+  const raw = localStorage.getItem("ctcStats");
+  if (raw) {
+    let s = null;
+    try {
+      s = JSON.parse(raw);
+    } catch (e) {
+      try {
+        localStorage.setItem("ctcStatsCorrupt", raw);
+      } catch (e2) {}
+    }
+    if (s && typeof s === "object") {
+      const from = Number(s.schema) || 1;
+      if (from < SCHEMA) {
+        try {
+          if (!localStorage.getItem("ctcStatsBackup_v" + from))
+            localStorage.setItem("ctcStatsBackup_v" + from, raw);
+        } catch (e) {}
+      }
+      stats = Object.assign(defaultStats(), s);
+      stats.best = Object.assign({ classic: 0, time: 0, zen: 0 }, s.best);
+      stats.daily = s.daily || {};
+      stats.ach = s.ach || {};
+      stats.skinSeen = s.skinSeen || {};
+      stats.schema = SCHEMA;
+    }
   }
   stats.best.classic = Math.max(stats.best.classic, Number(localStorage.getItem("highScore")) || 0);
 } catch (e) {}
@@ -558,13 +723,11 @@ function drawSpriteFx(img, x, y, w, h, fallbackColor, sx = 1, sy = 1, rot = 0) {
   drawSprite(img, -w / 2, -h / 2, w, h, fallbackColor);
   ctx.restore();
 }
-// [v1.6.1] alone luminoso: sui dispositivi lenti viene saltato
 function setGlow(color, blur) {
   if (lowFx) return;
   ctx.shadowColor = color;
   ctx.shadowBlur = blur;
 }
-// [v1.6.1] luccichio a quattro punte
 function drawGlint(x, y, r) {
   ctx.save();
   ctx.fillStyle = "#fff";
@@ -675,6 +838,25 @@ function beep(freq, duration, type = "square", volume = 0.08) {
   osc.start();
   osc.stop(audioCtx.currentTime + duration);
 }
+// [v1.7.0] rumore filtrato (vento, frantumazione)
+function noiseBurst(duration, volume, cutoff) {
+  if (!soundOn || !audioCtx) return;
+  const len = Math.floor(audioCtx.sampleRate * duration);
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = cutoff;
+  const gain = audioCtx.createGain();
+  gain.gain.value = volume * settings.sfx;
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  src.start();
+}
 const SFX = {
   click: () => beep(520, 0.06),
   collect: (pitch = 1) => beep(880 * pitch, 0.1),
@@ -702,6 +884,19 @@ const SFX = {
   warning: () => {
     beep(600, 0.15, "sawtooth", 0.06);
     setTimeout(() => beep(800, 0.15, "sawtooth", 0.06), 180);
+  },
+  // [v1.7.0]
+  graze: (chain = 1) => beep(1200 + chain * 150, 0.07, "triangle", 0.09),
+  fever: () => {
+    [523, 659, 784, 1047].forEach((f, i) =>
+      setTimeout(() => beep(f, 0.14, "square", 0.09), i * 70)
+    );
+  },
+  feverEnd: () => beep(330, 0.25, "triangle", 0.08),
+  wind: () => noiseBurst(1.1, 0.18, 600),
+  shatter: () => {
+    noiseBurst(0.35, 0.22, 2500);
+    beep(180, 0.25, "sawtooth", 0.1);
   }
 };
 
@@ -741,6 +936,11 @@ function syncMusic() {
       m.pause();
     }
   }
+}
+// [v1.7.0] la velocità della musica dipende dallo stage e dalla frenesia
+function applyMusicRate() {
+  MUSIC.game.playbackRate =
+    Math.min(CONFIG.musicRateMax, 1 + stage * 0.04) + (feverActive() ? CONFIG.feverMusicRate : 0);
 }
 function applyVolumes() {
   MUSIC.menu.volume = settings.music;
@@ -842,10 +1042,11 @@ function drawTheme(idx, alpha) {
     ctx.strokeStyle = "rgba(180, 200, 255, 0.35)";
     ctx.lineWidth = 1;
     ctx.beginPath();
+    const tilt = windCur * 0.04; // [v1.7.0] la pioggia si inclina con il vento
     for (const r of RAIN) {
       const y = (r.y + gameTime * r.s) % (canvas.height + 20);
       ctx.moveTo(r.x, y);
-      ctx.lineTo(r.x - 3, y + r.l);
+      ctx.lineTo(r.x - 3 + tilt, y + r.l);
     }
     ctx.stroke();
     if (!REDUCED && Math.sin(gameTime * 0.9) * Math.sin(gameTime * 2.3) > 0.93) {
@@ -860,24 +1061,134 @@ function drawBackground() {
   drawTheme(theme, themeFade);
 }
 
-// ---- DIFFICOLTÀ E PARAMETRI PER MODALITÀ ----
+// ---- FRENESIA, AMBIENTI E DIFFICOLTÀ ----
+function feverActive() {
+  return feverTimer > 0;
+}
+function fxEnabled() {
+  return settings.biomeFx || mode === "daily";
+}
+function biomeActive() {
+  return fxEnabled() && mode !== "zen";
+}
+
 function progress() {
   return coinsCaught * (mode === "zen" ? CONFIG.zenRamp : 1);
 }
 function currentPlayerSpeed() {
   return Math.min(CONFIG.playerSpeed + progress() * CONFIG.playerSpeedGain, CONFIG.playerSpeedMax);
 }
+// [v1.7.0] la caduta accelera meno dopo le prime 60 monete
 function currentFall() {
-  return CONFIG.itemSpeed + progress() * CONFIG.itemSpeedGain;
+  const p = progress();
+  return (
+    CONFIG.itemSpeed +
+    Math.min(p, CONFIG.fallGainFrom) * CONFIG.itemSpeedGain +
+    Math.max(0, p - CONFIG.fallGainFrom) * CONFIG.fallGainLate
+  );
 }
+// [v1.7.0] gli oggetti arrivano sempre più spesso (e più spesso in Frenesia)
+function currentSpawnInterval() {
+  let i = Math.max(CONFIG.spawnMin, CONFIG.spawnInterval - progress() * CONFIG.spawnRamp);
+  if (feverActive()) i *= CONFIG.feverSpawnMul;
+  return i;
+}
+// [v1.7.0] partenza morbida: pochi pipistrelli all'inizio, poi la pressione sale
 function effBadChance() {
-  return mode === "zen" ? 0 : CONFIG.badChance;
+  if (mode === "zen" || calmTimer > 0) return 0;
+  let b = Math.min(CONFIG.badMax, CONFIG.badStart + progress() * CONFIG.badRamp);
+  if (stage >= 5) b = CONFIG.badLate;
+  if (feverActive()) b += CONFIG.feverBadAdd;
+  return b;
 }
 function effGoldChance() {
-  return mode === "zen" ? CONFIG.zenGoldChance : CONFIG.goldChance;
+  let g = mode === "zen" ? CONFIG.zenGoldChance : CONFIG.goldChance;
+  if (feverActive()) g = Math.min(0.5, g * CONFIG.feverGoldMul);
+  return g;
 }
 function comboMultiplier() {
   return Math.min(CONFIG.comboMax, 1 + Math.floor(streak / CONFIG.comboStep));
+}
+function scoreMult() {
+  return comboMultiplier() * (feverActive() ? CONFIG.feverMult : 1);
+}
+
+function addFever(amount) {
+  if (feverActive()) return;
+  feverMeter = Math.min(1, feverMeter + amount);
+  if (feverMeter >= 1) startFever();
+}
+function startFever() {
+  feverTimer = CONFIG.feverTime;
+  feverMeter = 1;
+  feverFlash = 1;
+  punch = Math.max(punch, 0.6);
+  hitStop = Math.max(hitStop, CONFIG.hitStopFever);
+  stats.fevers++;
+  run.fevers++;
+  SFX.fever();
+  applyMusicRate();
+  checkAch();
+}
+
+// [v1.7.0] near-miss: un pipistrello è passato vicinissimo senza toccarti
+function registerGraze() {
+  grazeChain = grazeTimer > 0 ? grazeChain + 1 : 1;
+  grazeTimer = CONFIG.grazeChainTime;
+  const pts =
+    (CONFIG.grazePoints + Math.min(grazeChain - 1, CONFIG.grazeChainMax)) *
+    (feverActive() ? CONFIG.feverMult : 1);
+  score += pts;
+  stats.grazes++;
+  run.grazes++;
+  stats.bestRunGrazes = Math.max(stats.bestRunGrazes, run.grazes);
+  addFever(CONFIG.grazeFever);
+  if (mode === "time") timeLeft = Math.min(CONFIG.timeCap, timeLeft + CONFIG.grazeTimeBonus);
+  const cx = player.x + player.w / 2;
+  popup(cx, player.y - 8, t("close") + " +" + pts, "#7df9ff");
+  rings.push({ x: cx, y: player.y + player.h / 2, r: 14, life: 0.35, max: 0.35 });
+  SFX.graze(Math.min(grazeChain, 4));
+  checkAch();
+}
+
+// [v1.7.0] vento nella Tempesta
+function windStrength() {
+  return CONFIG.windBase + Math.min(stage, 8) * CONFIG.windPerStage;
+}
+function updateWind(dt) {
+  const active = biomeActive() && theme === 2 && themeFade > 0.5;
+  if (!active) {
+    windState = "idle";
+    windTarget = 0;
+    windTimer = Math.max(windTimer, 3);
+  } else if (windState === "idle") {
+    if (wavePending || calmTimer > 0) windTimer = Math.max(windTimer, 1);
+    windTimer -= dt;
+    if (windTimer <= 0) {
+      useRng(300000 + gustIndex);
+      windDir = rnd() < 0.5 ? -1 : 1;
+      windState = "warn";
+      windT = CONFIG.windWarn;
+      SFX.wind();
+    }
+  } else if (windState === "warn") {
+    windT -= dt;
+    if (windT <= 0) {
+      windState = "gust";
+      windT = CONFIG.windTime;
+      windTarget = windDir * windStrength();
+    }
+  } else if (windState === "gust") {
+    windT -= dt;
+    if (windT <= 0) {
+      windState = "idle";
+      windTarget = 0;
+      useRng(310000 + gustIndex);
+      windTimer = CONFIG.windEveryMin + rnd() * (CONFIG.windEveryMax - CONFIG.windEveryMin);
+      gustIndex++;
+    }
+  }
+  windCur += (windTarget - windCur) * (1 - Math.exp(-6 * dt));
 }
 
 // ---- AZIONI ----
@@ -890,8 +1201,8 @@ function resetGame() {
     w: CONFIG.playerW,
     h: CONFIG.playerH,
     lean: 0,
-    vx: 0, // [v1.6.1] velocità orizzontale (movimento morbido)
-    pop: 0 // [v1.6.1] "pop" quando raccoglie qualcosa
+    vx: 0,
+    pop: 0
   };
   items = [];
   spawnTimer = 0;
@@ -920,12 +1231,32 @@ function resetGame() {
   runTime = 0;
   spawnIndex = 0;
   playerHidden = false;
-  run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, ended: false };
+  run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, grazes: 0, fevers: 0, ended: false };
   runUnlocked = [];
   runSkins = [];
   displayScore = 0;
   slowCur = 1;
   dustTimer = 0;
+  // [v1.7.0]
+  feverMeter = 0;
+  feverTimer = 0;
+  feverFlash = 0;
+  grazeChain = 0;
+  grazeTimer = 0;
+  calmTimer = 0;
+  wavePlan = null;
+  windState = "idle";
+  windDir = 1;
+  windT = 0;
+  windTimer = 6;
+  windCur = 0;
+  windTarget = 0;
+  gustIndex = 0;
+  nightAmt = 0;
+  hitStop = 0;
+  punch = 0;
+  shards = [];
+  rings = [];
 }
 function startGame() {
   mode = selectedMode;
@@ -933,11 +1264,63 @@ function startGame() {
   dailySeed = hashString("ctc-" + dailyKey);
   resetGame();
   MUSIC.game.currentTime = 0;
-  MUSIC.game.playbackRate = 1;
+  applyMusicRate();
   countdown = CONFIG.countdown;
   lastCount = 0;
   state = "countdown";
 }
+// [v1.7.0] il personaggio si frantuma in 9 pezzi
+function makeShards() {
+  const img = skinImg();
+  const cols = 3,
+    rows = 3;
+  const w = player.w / cols,
+    h = player.h / rows;
+  shards = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const a = (Math.random() - 0.5) * 2.2 - Math.PI / 2;
+      const s = 120 + Math.random() * 260;
+      shards.push({
+        x: player.x + c * w,
+        y: player.y + r * h,
+        w,
+        h,
+        sx: img.loaded ? (c * img.width) / cols : 0,
+        sy: img.loaded ? (r * img.height) / rows : 0,
+        sw: img.loaded ? img.width / cols : 0,
+        sh: img.loaded ? img.height / rows : 0,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        rot: 0,
+        vr: (Math.random() - 0.5) * 10,
+        img
+      });
+    }
+  }
+}
+function updateShards(dt) {
+  for (const s of shards) {
+    s.vy += 700 * dt;
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    s.rot += s.vr * dt;
+  }
+}
+function drawShards() {
+  for (const s of shards) {
+    ctx.save();
+    ctx.translate(s.x + s.w / 2, s.y + s.h / 2);
+    ctx.rotate(s.rot);
+    if (s.img.loaded) ctx.drawImage(s.img, s.sx, s.sy, s.sw, s.sh, -s.w / 2, -s.h / 2, s.w, s.h);
+    else {
+      ctx.fillStyle = "#4cc9f0";
+      ctx.fillRect(-s.w / 2, -s.h / 2, s.w, s.h);
+    }
+    ctx.restore();
+  }
+}
+
 function endRun(reason) {
   state = "dying";
   if (reason === "time") {
@@ -952,7 +1335,11 @@ function endRun(reason) {
     playerHidden = true;
     shake = 14;
     flash = 1;
+    punch = 1;
+    hitStop = CONFIG.hitStopDeath;
+    makeShards();
     burst(player.x + player.w / 2, player.y + player.h / 2, "#4cc9f0", 30, 220);
+    SFX.shatter();
   }
 }
 function finishGame() {
@@ -981,6 +1368,9 @@ function goToMenu() {
 function refreshSoundButton() {
   el.soundBtn.textContent = t(soundOn ? "sound_on" : "sound_off");
 }
+function refreshFxButton() {
+  el.fxBtn.textContent = t(settings.biomeFx ? "fx_on" : "fx_off");
+}
 function toggleSound() {
   soundOn = !soundOn;
   settings.sound = soundOn;
@@ -1005,18 +1395,197 @@ function activatePowerup(kind) {
   if (kind === "slow") slowTimer = CONFIG.slowTime;
   SFX.power();
 }
+
+// ---- [v1.7.0] ONDATE DISEGNATE A MANO ----
+// Ogni schema è una lista di righe; ogni riga elenca le colonne (0-5) occupate da pipistrelli.
+function buildWall() {
+  const gap = Math.floor(rnd() * 6);
+  return { rows: [{ bats: [0, 1, 2, 3, 4, 5].filter((c) => c !== gap) }] };
+}
+function corridorRow(s, w) {
+  const bats = [];
+  for (let c = 0; c < 6; c++) if (Math.abs(c - s) > w) bats.push(c);
+  return { bats };
+}
+function buildStairs(tier) {
+  const w = tier >= 2 ? 0 : 1; // corridoio largo 3 celle, poi stretto 1
+  const dir = rnd() < 0.5 ? 1 : -1;
+  let s = dir === 1 ? 0 : 5;
+  const rows = [];
+  for (let r = 0; r < 5; r++) {
+    rows.push(corridorRow(s, w));
+    s += dir;
+  }
+  return { rows };
+}
+function buildArrow() {
+  return {
+    rows: [{ bats: [2, 3] }, { bats: [1, 4] }, { bats: [0, 5] }],
+    bonus: [
+      { row: 1, col: 2 },
+      { row: 1, col: 3 },
+      { row: 2, col: 2 },
+      { row: 2, col: 3 }
+    ]
+  };
+}
+function buildSnake() {
+  const phase = rnd() * Math.PI * 2;
+  const rows = [];
+  for (let r = 0; r < 7; r++) {
+    const head = Math.max(0, Math.min(4, Math.round(2 + 2 * Math.sin(phase + r * 0.9))));
+    rows.push({ bats: [head, head + 1] });
+  }
+  return { rows };
+}
+function buildPincer() {
+  const right = rnd() < 0.5;
+  const wins = right
+    ? [
+        [1, 4],
+        [2, 4],
+        [3, 4],
+        [4, 4]
+      ]
+    : [
+        [1, 4],
+        [1, 3],
+        [1, 2],
+        [1, 1]
+      ];
+  return {
+    rows: wins.map(([l, r]) => ({ bats: [0, 1, 2, 3, 4, 5].filter((c) => c < l || c > r) }))
+  };
+}
+function buildChecker() {
+  const flip = rnd() < 0.5 ? 1 : 0;
+  const rows = [];
+  for (let r = 0; r < 4; r++) {
+    const bats = [];
+    for (let c = 0; c < 6; c++) if ((c + r + flip) % 2 === 0) bats.push(c);
+    rows.push({ bats });
+  }
+  return { rows };
+}
+const PATTERNS = {
+  wall: { from: 1, build: buildWall },
+  stairs: { from: 1, build: buildStairs },
+  arrow: { from: 1, build: buildArrow },
+  snake: { from: 2, build: buildSnake },
+  pincer: { from: 3, build: buildPincer },
+  checker: { from: 4, build: buildChecker }
+};
+
+// Trova un percorso sicuro: una colonna libera per riga, con salti di al massimo una colonna
+function choosePath(rows) {
+  const layers = [];
+  for (let r = 0; r < rows.length; r++) {
+    const layer = [];
+    for (let c = 0; c < 6; c++) {
+      if (rows[r].bats.includes(c)) continue;
+      if (r === 0) {
+        layer.push({ col: c, from: -1 });
+      } else {
+        const preds = [];
+        layers[r - 1].forEach((n, i) => {
+          if (Math.abs(n.col - c) <= 1) preds.push(i);
+        });
+        if (preds.length) layer.push({ col: c, from: preds[Math.floor(rnd() * preds.length)] });
+      }
+    }
+    if (!layer.length) return null;
+    layers.push(layer);
+  }
+  let idx = Math.floor(rnd() * layers[layers.length - 1].length);
+  const path = [];
+  for (let r = layers.length - 1; r >= 0; r--) {
+    path[r] = layers[r][idx].col;
+    idx = layers[r][idx].from;
+  }
+  return path;
+}
+function buildWavePlan() {
+  const tier = stage >= 4 ? 2 : stage >= 2 ? 1 : 0;
+  let pool = Object.keys(PATTERNS).filter((id) => stage >= PATTERNS[id].from);
+  if (!pool.length) pool = ["wall"];
+  let id = pool[Math.floor(rnd() * pool.length)];
+  if (FORCE_PATTERN && PATTERNS[FORCE_PATTERN]) id = FORCE_PATTERN;
+
+  let built = PATTERNS[id].build(tier);
+  const mirror = rnd() < 0.5;
+  let rows = mirror ? built.rows.map((r) => ({ bats: r.bats.map((c) => 5 - c) })) : built.rows;
+  let bonus = (built.bonus || []).map((b) => ({ row: b.row, col: mirror ? 5 - b.col : b.col }));
+  let path = choosePath(rows);
+  if (!path) {
+    // non dovrebbe succedere: si ripiega sul muro
+    id = "wall";
+    built = buildWall();
+    rows = built.rows;
+    bonus = [];
+    path = choosePath(rows);
+  }
+  return { id, rows, path, bonus, tier };
+}
+function spawnWave() {
+  useRng(200000 + stage);
+  const cols = 6;
+  const colW = canvas.width / cols;
+  if (mode === "zen") {
+    for (let c = 0; c < cols; c++) {
+      const kind = rnd() < 0.15 ? "gold" : "coin";
+      const size = kind === "gold" ? CONFIG.goldSize : CONFIG.itemSize;
+      items.push(makeItem(c * colW + colW / 2 - size / 2, kind));
+    }
+    return;
+  }
+  const plan = wavePlan;
+  if (!plan) return;
+  const rowTime = CONFIG.waveRowTime[plan.tier];
+  const rowGap = currentFall() * rowTime;
+
+  plan.rows.forEach((row, r) => {
+    for (const c of row.bats) {
+      const it = makeItem(c * colW + colW / 2 - CONFIG.itemSize / 2, "bat");
+      it.y = -CONFIG.itemSize - r * rowGap;
+      items.push(it);
+    }
+  });
+  // scia di monete lungo il percorso sicuro: l'ultima è d'oro
+  plan.path.forEach((c, r) => {
+    const kind = plan.rows.length > 1 && r === plan.path.length - 1 ? "gold" : "coin";
+    const size = kind === "gold" ? CONFIG.goldSize : CONFIG.itemSize;
+    const it = makeItem(c * colW + colW / 2 - size / 2, kind);
+    it.y = -size - r * rowGap;
+    items.push(it);
+  });
+  // monete "da rischio" in zone raggiungibili solo con abilità
+  for (const b of plan.bonus) {
+    if (plan.path[b.row] === b.col) continue;
+    const it = makeItem(b.col * colW + colW / 2 - CONFIG.itemSize / 2, "coin");
+    it.y = -CONFIG.itemSize - b.row * rowGap;
+    items.push(it);
+  }
+  calmTimer = CONFIG.calmTime + plan.rows.length * rowTime;
+}
 function startStage() {
   useRng(100000 + stage);
   prevTheme = theme;
   theme = stage % 3;
   themeFade = 0;
-  waveGap = Math.floor(rnd() * CONFIG.waveColumns);
+  if (mode === "zen") {
+    wavePlan = null;
+    waveGap = Math.floor(rnd() * CONFIG.waveColumns);
+  } else {
+    wavePlan = buildWavePlan();
+    waveGap = wavePlan.path[0];
+  }
   waveTimer = CONFIG.waveWarning;
   wavePending = true;
   bannerText = t("stage") + " " + (stage + 1);
   bannerTimer = CONFIG.waveWarning + 0.4;
+  windTimer = Math.max(windTimer, 4);
   SFX.warning();
-  MUSIC.game.playbackRate = Math.min(CONFIG.musicRateMax, 1 + stage * 0.04);
+  applyMusicRate();
 }
 
 // ---- LINGUA E MENU ----
@@ -1041,6 +1610,7 @@ function applyLang() {
   });
   langBtns.forEach((b) => b.classList.toggle("selected", b.dataset.lang === lang));
   refreshSoundButton();
+  refreshFxButton();
   refreshModeUI();
   if (state === "stats") renderStats();
   if (state === "skins") renderSkins();
@@ -1064,7 +1634,12 @@ const ACH = [
   { id: "shield_save", test: () => run.shieldSaves >= 1 },
   { id: "daily_done", test: () => run.ended && mode === "daily" },
   { id: "time_40", test: () => run.ended && mode === "time" && score >= 40 },
-  { id: "all_skins", test: () => SKINS.every((s) => stats.coins >= s.need) }
+  { id: "all_skins", test: () => SKINS.every((s) => stats.coins >= s.need) },
+  // [v1.7.0]
+  { id: "graze_25", test: () => stats.grazes >= 25 },
+  { id: "graze_run", test: () => run.grazes >= 10 },
+  { id: "fever_1", test: () => stats.fevers >= 1 },
+  { id: "fever_10", test: () => stats.fevers >= 10 }
 ];
 function unlock(id) {
   if (stats.ach[id]) return;
@@ -1088,7 +1663,7 @@ function fmtTime(sec) {
 function addRow(box, label, value, cls) {
   const r = document.createElement("div");
   r.className = "row" + (cls ? " " + cls : "");
-  r.style.setProperty("--i", box.children.length); // [v1.6.1] entrata a cascata
+  r.style.setProperty("--i", box.children.length);
   const a = document.createElement("span");
   a.textContent = label;
   r.appendChild(a);
@@ -1109,6 +1684,9 @@ function renderStats() {
   addRow(box, t("st_powerups"), stats.powerups);
   addRow(box, t("st_combo"), stats.bestStreak);
   addRow(box, t("st_stage"), stats.bestStage);
+  addRow(box, t("st_grazes"), stats.grazes);
+  addRow(box, t("st_best_graze"), stats.bestRunGrazes);
+  addRow(box, t("st_fevers"), stats.fevers);
   addRow(box, t("st_skins"), SKINS.filter(skinUnlocked).length + "/" + SKINS.length);
   addRow(box, t("st_best_classic"), stats.best.classic);
   addRow(box, t("st_best_daily"), stats.daily[todayKey()] || 0);
@@ -1194,20 +1772,25 @@ function updateEffects(dt) {
   popups = popups.filter((tx) => tx.life > 0);
   for (const ts of toasts) ts.life -= dt;
   toasts = toasts.filter((ts) => ts.life > 0);
+  for (const r of rings) {
+    r.life -= dt;
+    r.r += 140 * dt;
+  }
+  rings = rings.filter((r) => r.life > 0);
   shake = Math.max(0, shake - 25 * dt);
   flash = Math.max(0, flash - 2.5 * dt);
   goFlash = Math.max(0, goFlash - dt);
+  feverFlash = Math.max(0, feverFlash - dt);
   bannerTimer = Math.max(0, bannerTimer - dt);
   themeFade = Math.min(1, themeFade + dt / 1.5);
-  // [v1.6.1] pop del personaggio e punteggio che "conta" fino al valore reale
+  punch = Math.max(0, punch - dt * 3);
+  nightAmt += ((theme === 1 && biomeActive() ? 1 : 0) - nightAmt) * (1 - Math.exp(-2.5 * dt));
   player.pop = Math.max(0, player.pop - dt * 5);
   displayScore += (score - displayScore) * (1 - Math.exp(-CONFIG.scoreEase * dt));
   if (Math.abs(score - displayScore) < 0.5) displayScore = score;
 }
-
-// [v1.6.1] misura la fluidità: sopra una certa soglia si riducono gli effetti (con isteresi)
 function trackFrame(ms) {
-  if (ms > 250) return; // pausa del tab o primo caricamento
+  if (ms > 250) return;
   frameAvg += (ms - frameAvg) * 0.03;
   if (!lowFx && frameAvg > CONFIG.lowFpsMs) lowFx = true;
   else if (lowFx && frameAvg < CONFIG.lowFpsMs * 0.75) lowFx = false;
@@ -1268,7 +1851,9 @@ function makeItem(x, kind) {
     delay: 0,
     baseX: x,
     amp: 0,
-    speedMul: 1
+    speedMul: 1,
+    minGap: Infinity,
+    grazed: false // [v1.7.0] per il near-miss
   };
   if (kind === "zig") {
     it.amp = CONFIG.zigAmp;
@@ -1314,17 +1899,6 @@ function spawnItem() {
   const kind = rGold < effGoldChance() ? "gold" : "coin";
   items.push(makeItem(freeX(kind === "gold" ? CONFIG.goldSize : CONFIG.itemSize), kind));
 }
-function spawnWave() {
-  useRng(200000 + stage);
-  const cols = CONFIG.waveColumns;
-  const colW = canvas.width / cols;
-  for (let c = 0; c < cols; c++) {
-    const x = c * colW + colW / 2 - CONFIG.itemSize / 2;
-    if (mode === "zen") items.push(makeItem(x, rnd() < 0.15 ? "gold" : "coin"));
-    else if (c === waveGap) items.push(makeItem(x, "coin"));
-    else if (rnd() < 0.85) items.push(makeItem(x, "bat"));
-  }
-}
 
 // ---- PULSANTI HTML ----
 function onClick(id, action) {
@@ -1346,6 +1920,11 @@ onClick("btn-howto-back", goToMenu);
 onClick("btn-stats-back", goToMenu);
 onClick("btn-settings-back", goToMenu);
 onClick("btn-sound", toggleSound);
+onClick("btn-biomefx", () => {
+  settings.biomeFx = !settings.biomeFx;
+  saveSettings();
+  refreshFxButton();
+});
 onClick("btn-resume", togglePause);
 onClick("btn-pause-menu", goToMenu);
 onClick("btn-retry", startGame);
@@ -1382,7 +1961,7 @@ el.resetBtn.addEventListener("click", () => {
   el.resetBtn.blur();
 });
 
-// ---- [v1.6.1] PWA: pulsante "Install app" e service worker ----
+// ---- PWA: pulsante "Install app" e service worker ----
 let installPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
@@ -1407,8 +1986,6 @@ el.installBtn.addEventListener("click", async () => {
   el.installBtn.blur();
 });
 
-// Il service worker si registra solo nella pagina principale (non dentro l'iframe di Itch.io)
-// e non in locale, per non vedere vecchie versioni mentre sviluppi (usa ?pwa per provarlo, ?nopwa per toglierlo)
 const IS_LOCAL = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 if ("serviceWorker" in navigator) {
   if (location.search.includes("nopwa")) {
@@ -1495,14 +2072,13 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ---- LOGICA ----
-// [v1.6.1] movimento morbido: il personaggio accelera e frena invece di scattare
 function movePlayer(dt) {
   const maxSpeed = currentPlayerSpeed();
   let dir = 0;
   if (keys["ArrowLeft"] || keys["a"] || keys["A"]) dir -= 1;
   if (keys["ArrowRight"] || keys["d"] || keys["D"]) dir += 1;
 
-  let desired = 0; // velocità che il giocatore "vuole"
+  let desired = 0;
   if (dir !== 0) {
     desired = dir * maxSpeed;
     targetX = null;
@@ -1512,10 +2088,9 @@ function movePlayer(dt) {
       Math.abs(diff) < 0.5 ? 0 : Math.max(-maxSpeed, Math.min(maxSpeed, diff * CONFIG.followGain));
   }
 
-  // avvicinamento esponenziale: uguale su schermi a 60, 120 o 144 Hz
   player.vx += (desired - player.vx) * (1 - Math.exp(-CONFIG.accel * dt));
   if (desired === 0 && Math.abs(player.vx) < 1) player.vx = 0;
-  player.x += player.vx * dt;
+  player.x += (player.vx + windCur) * dt; // [v1.7.0] il vento spinge il personaggio
 
   if (player.x < 0) {
     player.x = 0;
@@ -1525,11 +2100,9 @@ function movePlayer(dt) {
     player.vx = 0;
   }
 
-  // inclinazione proporzionale alla velocità
   const targetLean = Math.max(-1, Math.min(1, player.vx / maxSpeed)) * 0.2;
   player.lean += (targetLean - player.lean) * Math.min(1, dt * 12);
 
-  // polvere ai piedi quando corre
   dustTimer -= dt;
   if (!lowFx && Math.abs(player.vx) > 260 && dustTimer <= 0) {
     dustTimer = 0.045;
@@ -1548,6 +2121,11 @@ function movePlayer(dt) {
 }
 
 function update(dt) {
+  // [v1.7.0] fermo immagine: la logica si ferma per un istante
+  if (hitStop > 0 && (state === "playing" || state === "dying")) {
+    hitStop -= dt;
+    return;
+  }
   if (state === "countdown") {
     movePlayer(dt);
     countdown -= dt;
@@ -1566,7 +2144,9 @@ function update(dt) {
   }
   if (state === "dying") {
     dyingTimer -= dt;
-    updateEffects(dt);
+    const sdt = dt * CONFIG.deathSlow; // morte al rallentatore
+    updateEffects(sdt);
+    updateShards(sdt);
     if (dyingTimer <= 0) finishGame();
     return;
   }
@@ -1578,9 +2158,25 @@ function update(dt) {
   invuln = Math.max(0, invuln - dt);
   magnetTimer = Math.max(0, magnetTimer - dt);
   slowTimer = Math.max(0, slowTimer - dt);
-  // [v1.6.1] lo slow-mo entra ed esce gradualmente
   slowCur +=
     ((slowTimer > 0 ? CONFIG.slowFactor : 1) - slowCur) * (1 - Math.exp(-CONFIG.slowEase * dt));
+  calmTimer = Math.max(0, calmTimer - dt);
+  grazeTimer = Math.max(0, grazeTimer - dt);
+  if (grazeTimer === 0) grazeChain = 0;
+
+  // frenesia in corso
+  if (feverTimer > 0) {
+    feverTimer -= dt;
+    feverMeter = Math.max(0, feverTimer / CONFIG.feverTime);
+    if (feverTimer <= 0) {
+      feverTimer = 0;
+      feverMeter = 0;
+      SFX.feverEnd();
+      applyMusicRate();
+    }
+  }
+
+  updateWind(dt);
 
   if (mode === "time" || mode === "zen") {
     timeLeft -= dt;
@@ -1600,7 +2196,7 @@ function update(dt) {
   }
 
   spawnTimer += dt;
-  if (spawnTimer >= CONFIG.spawnInterval) {
+  if (spawnTimer >= currentSpawnInterval()) {
     spawnTimer = 0;
     const count = Math.random() < CONFIG.burstChance ? 2 + Math.floor(Math.random() * 2) : 1;
     for (let i = 0; i < count; i++) spawnItem();
@@ -1609,6 +2205,9 @@ function update(dt) {
   const fall = currentFall() * slowCur;
   const pcx = player.x + player.w / 2;
   const pcy = player.y + player.h / 2;
+  const magR = CONFIG.magnetRadius * (feverActive() ? CONFIG.feverMagnetMul : 1);
+  const magP = CONFIG.magnetPull * (feverActive() ? 1.3 : 1);
+  const magnetOn = magnetTimer > 0 || feverActive();
   for (const it of items) {
     if (it.delay > 0) {
       it.delay -= dt;
@@ -1617,13 +2216,13 @@ function update(dt) {
     it.age += dt;
     it.y += fall * it.speedMul * dt;
     if (it.kind === "zig") it.x = it.baseX + Math.sin(it.age * 3.2 + it.phase) * it.amp;
-    if (magnetTimer > 0 && (it.kind === "coin" || it.kind === "gold")) {
+    if (magnetOn && (it.kind === "coin" || it.kind === "gold")) {
       const dx = pcx - (it.x + it.size / 2);
       const dy = pcy - (it.y + it.size / 2);
       const dist = Math.hypot(dx, dy);
-      if (dist < CONFIG.magnetRadius && dist > 1) {
-        it.x += (dx / dist) * CONFIG.magnetPull * dt;
-        it.y += (dy / dist) * CONFIG.magnetPull * dt;
+      if (dist < magR && dist > 1) {
+        it.x += (dx / dist) * magP * dt;
+        it.y += (dy / dist) * magP * dt;
       }
     }
   }
@@ -1644,12 +2243,14 @@ function update(dt) {
           burst(cx, cy, "#4cc9f0", 20);
           popup(cx, cy, t("shield") + "!", "#4cc9f0");
           shake = 6;
+          hitStop = Math.max(hitStop, CONFIG.hitStopShield);
           checkAch();
         } else if (invuln > 0) {
           return true;
         } else if (mode === "time") {
           timeLeft = Math.max(0, timeLeft - CONFIG.timePenalty);
           invuln = CONFIG.invulnTime;
+          if (!feverActive()) feverMeter *= 0.5;
           SFX.hit();
           burst(cx, cy, "#f72585", 18);
           popup(pcx, player.y, "-" + CONFIG.timePenalty + "s", "#ff4d6d");
@@ -1678,13 +2279,14 @@ function update(dt) {
         stats.coins++;
         run.coins++;
         stats.bestStreak = Math.max(stats.bestStreak, streak);
-        const value = (it.kind === "gold" ? CONFIG.goldValue : 1) * comboMultiplier();
+        const value = (it.kind === "gold" ? CONFIG.goldValue : 1) * scoreMult();
         score += value;
         player.pop = it.kind === "gold" ? 1.3 : 1;
         if (it.kind === "gold") {
           stats.gold++;
           run.gold++;
           SFX.gold();
+          hitStop = Math.max(hitStop, CONFIG.hitStopGold);
           burst(cx, cy, "#fff6a8", 18);
           popup(cx, cy, "+" + value, "#fff6a8");
         } else {
@@ -1692,6 +2294,7 @@ function update(dt) {
           burst(cx, cy, "#ffd60a", 10);
           popup(cx, cy, "+" + value, "#ffd60a");
         }
+        addFever(it.kind === "gold" ? CONFIG.feverGold : CONFIG.feverCoin);
         if (Math.floor(coinsCaught / CONFIG.stageSize) > stage) {
           stage = Math.floor(coinsCaught / CONFIG.stageSize);
           startStage();
@@ -1701,8 +2304,23 @@ function update(dt) {
       }
       return false;
     }
+
+    // [v1.7.0] near-miss: misura la distanza minima mentre il pipistrello ti passa accanto
+    if (it.bad && !it.grazed && invuln <= 0) {
+      if (iBox.y < pBox.y + pBox.h && iBox.y + iBox.h > pBox.y) {
+        const gapX = Math.max(pBox.x - (iBox.x + iBox.w), iBox.x - (pBox.x + pBox.w), 0);
+        if (gapX < it.minGap) it.minGap = gapX;
+      } else if (iBox.y >= pBox.y + pBox.h) {
+        it.grazed = true; // controllato una volta sola
+        if (it.minGap > 0 && it.minGap <= CONFIG.grazeDist) registerGraze();
+      }
+    }
+
     if (it.y > canvas.height) {
-      if (it.kind === "coin" || it.kind === "gold") streak = 0;
+      if (it.kind === "coin" || it.kind === "gold") {
+        streak = 0;
+        if (!feverActive()) feverMeter = Math.max(0, feverMeter - CONFIG.feverMissLoss);
+      }
       return false;
     }
     return true;
@@ -1729,7 +2347,6 @@ function drawWarningMark(cx) {
   ctx.restore();
 }
 
-// [v1.6.1] power-up: fluttua e ha un anello tratteggiato che gira
 function drawPowerup(it) {
   const cx = it.x + it.size / 2;
   const cy = it.y + it.size / 2 + Math.sin(gameTime * 4 + it.phase) * 3;
@@ -1819,7 +2436,6 @@ function drawItem(it) {
     const spin = 0.4 + 0.6 * Math.abs(Math.cos(gameTime * 4 + it.phase));
     drawSpriteFx(IMG.coin, it.x, it.y, it.size, it.size, "#ffd60a", spin, 1);
     ctx.restore();
-    // [v1.6.1] due scintille che orbitano attorno alla moneta d'oro
     if (!lowFx) {
       ctx.fillStyle = "#fff6a8";
       for (let k = 0; k < 2; k++) {
@@ -1838,14 +2454,12 @@ function drawItem(it) {
   if (it.kind === "coin") {
     const spin = 0.35 + 0.65 * Math.abs(Math.cos(gameTime * 6 + it.phase));
     drawSpriteFx(IMG.coin, it.x, it.y, it.size, it.size, "#ffd60a", spin, 1);
-    // [v1.6.1] ogni tanto la moneta luccica
     const gl = Math.sin(gameTime * 5 + it.phase * 3);
     if (!lowFx && gl > 0.94)
       drawGlint(it.x + it.size * 0.72, it.y + it.size * 0.25, 2 + (gl - 0.94) * 80);
     return;
   }
 
-  // pipistrelli: battito d'ali, ondeggiamento, inclinazione (zig-zag) e scia (veloce)
   const flap = 1 + 0.15 * Math.sin(gameTime * (it.kind === "fast" ? 24 : 16) + it.phase);
   let rot = Math.sin(it.age * 6 + it.phase) * 0.12;
   if (it.kind === "zig") rot += Math.cos(it.age * 3.2 + it.phase) * 0.35;
@@ -1864,13 +2478,124 @@ function drawItem(it) {
   ctx.restore();
 }
 
+// [v1.7.0] vento: frecce di avviso e strisce durante la raffica
+function drawWind() {
+  if (windState === "idle") return;
+  const strong = windState === "gust";
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#cfe3ff";
+  ctx.lineWidth = 4;
+  ctx.globalAlpha = strong ? 0.5 : 0.45 + 0.3 * Math.sin(gameTime * 14);
+  const baseX = windDir > 0 ? 36 : canvas.width - 36;
+  for (const y of [250, 330]) {
+    for (let i = 0; i < 3; i++) {
+      const x = baseX + windDir * (i * 26);
+      ctx.beginPath();
+      ctx.moveTo(x - windDir * 10, y - 18);
+      ctx.lineTo(x + windDir * 6, y);
+      ctx.lineTo(x - windDir * 10, y + 18);
+      ctx.stroke();
+    }
+  }
+  if (strong) {
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.25;
+    for (let i = 0; i < 9; i++) {
+      const y = (i * 71 + gameTime * 40) % canvas.height;
+      const x = (gameTime * 900 * windDir + i * 97) % (canvas.width + 160);
+      const xx = windDir > 0 ? x - 80 : canvas.width - x + 80;
+      ctx.beginPath();
+      ctx.moveTo(xx, y);
+      ctx.lineTo(xx + windDir * 60, y);
+      ctx.stroke();
+    }
+  } else {
+    ctx.globalAlpha = 0.9;
+    ctx.font = "bold 18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#cfe3ff";
+    ctx.fillText(t("wind"), canvas.width / 2, 120);
+  }
+  ctx.restore();
+}
+
+// [v1.7.0] notte: buio attorno al personaggio, ma tutto resta leggibile grazie agli aloni
+function drawNight() {
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
+  const R = CONFIG.nightLight * (feverActive() ? 1.25 : 1);
+  const g = ctx.createRadialGradient(cx, cy, R * 0.45, cx, cy, R);
+  g.addColorStop(0, "rgba(3, 4, 40, 0)");
+  g.addColorStop(1, "rgba(3, 4, 40, " + CONFIG.nightDark * nightAmt + ")");
+  ctx.fillStyle = g;
+  ctx.fillRect(-40, -40, canvas.width + 80, canvas.height + 80);
+
+  for (const it of items) {
+    if (it.delay > 0) continue;
+    const x = it.x + it.size / 2;
+    const y = it.y + it.size / 2;
+    let col = "255, 214, 10";
+    if (it.bad) col = it.kind === "zig" ? "155, 240, 0" : "255, 40, 80";
+    else if (it.power) col = "200, 160, 255";
+    const rad = it.bad ? 18 : 15;
+    const hg = ctx.createRadialGradient(x, y, 1, x, y, rad);
+    hg.addColorStop(0, "rgba(" + col + ", " + 0.75 * nightAmt + ")");
+    hg.addColorStop(1, "rgba(" + col + ", 0)");
+    ctx.fillStyle = hg;
+    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+}
+
+// [v1.7.0] barra della frenesia in alto e bordi dorati
+function drawFeverUI() {
+  const w = canvas.width;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+  ctx.fillRect(0, 0, w, 6);
+  if (feverMeter > 0) {
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, "#ffd60a");
+    g.addColorStop(1, "#f72585");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w * feverMeter, 6);
+    if (!feverActive() && feverMeter > 0.85 && Math.sin(gameTime * 14) > 0) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillRect(0, 0, w * feverMeter, 6);
+    }
+  }
+  if (feverActive()) {
+    const a = 0.18 + 0.08 * Math.sin(gameTime * 10);
+    const vg = ctx.createRadialGradient(
+      w / 2,
+      canvas.height / 2,
+      canvas.height * 0.35,
+      w / 2,
+      canvas.height / 2,
+      canvas.height * 0.75
+    );
+    vg.addColorStop(0, "rgba(255, 214, 10, 0)");
+    vg.addColorStop(1, "rgba(255, 160, 0, " + a + ")");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, w, canvas.height);
+  }
+}
+
 function drawScene() {
   drawBackground();
 
   ctx.save();
+  if (!REDUCED && punch > 0) {
+    const z = 1 + punch * 0.05;
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(z, z);
+    ctx.translate(-canvas.width / 2, -canvas.height / 2);
+  }
   if (shake > 0 && !REDUCED) {
     ctx.translate((Math.random() - 0.5) * shake * 2, (Math.random() - 0.5) * shake * 2);
   }
+
+  drawWind();
 
   if (wavePending && mode !== "zen") {
     const colW = canvas.width / CONFIG.waveColumns;
@@ -1891,7 +2616,6 @@ function drawScene() {
 
   const flicker = invuln > 0 && Math.sin(gameTime * 40) < 0;
   if (!playerHidden && !flicker) {
-    // [v1.6.1] il personaggio respira e si "schiaccia" quando raccoglie (i piedi restano fermi)
     const breathe = Math.sin(gameTime * 3) * 0.025;
     const sx = 1 - breathe * 0.5 - player.pop * 0.08;
     const sy = 1 + breathe + player.pop * 0.15;
@@ -1914,6 +2638,20 @@ function drawScene() {
     ctx.arc(player.x + player.w / 2, player.y + player.h / 2, player.w * 0.75, 0, Math.PI * 2);
     ctx.stroke();
   }
+  if (shards.length) drawShards();
+
+  if (nightAmt > 0.02) drawNight();
+
+  // anelli degli sfiori
+  for (const r of rings) {
+    ctx.globalAlpha = Math.max(0, r.life / r.max);
+    ctx.strokeStyle = "#7df9ff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 
   for (const p of particles) {
     ctx.globalAlpha = Math.max(0, p.life / p.max);
@@ -1936,6 +2674,8 @@ function drawScene() {
     const pb = box(player.x, player.y, player.w, player.h, CONFIG.playerHitbox);
     ctx.strokeStyle = "#00ff88";
     ctx.strokeRect(pb.x, pb.y, pb.w, pb.h);
+    ctx.strokeStyle = "rgba(125, 249, 255, 0.5)";
+    ctx.strokeRect(pb.x - CONFIG.grazeDist, pb.y, pb.w + CONFIG.grazeDist * 2, pb.h); // zona di sfioro
     for (const it of items) {
       const b = box(it.x, it.y, it.size, it.size, it.bad ? CONFIG.batHitbox : CONFIG.coinHitbox);
       ctx.strokeStyle = it.bad ? "#ff0044" : "#00ffff";
@@ -1944,17 +2684,19 @@ function drawScene() {
   }
   ctx.restore();
 
+  drawFeverUI();
+
   // HUD (non trema)
   ctx.font = "bold 20px sans-serif";
   ctx.textAlign = "left";
   ctx.fillStyle = "#ffd60a";
-  ctx.fillText(t("points") + ": " + Math.round(displayScore), 10, 25);
+  ctx.fillText(t("points") + ": " + Math.round(displayScore), 10, 27);
   ctx.textAlign = "right";
   ctx.fillStyle = "#4cc9f0";
   ctx.fillText(
     t("speed") + ": x" + (currentPlayerSpeed() / CONFIG.playerSpeed).toFixed(1),
     canvas.width - 10,
-    25
+    27
   );
 
   if (mode === "time" || mode === "zen") {
@@ -1966,18 +2708,20 @@ function drawScene() {
     ctx.fillText(
       t("time") + " " + Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"),
       canvas.width / 2,
-      25
+      27
     );
   }
 
   ctx.font = "bold 14px sans-serif";
   ctx.textAlign = "left";
-  let ly = 46;
+  let ly = 48;
   const line = (text, color) => {
     ctx.fillStyle = color;
     ctx.fillText(text, 10, ly);
     ly += 18;
   };
+  if (feverActive())
+    line(t("fever") + " x" + CONFIG.feverMult + "  " + feverTimer.toFixed(1) + "s", "#ffb703");
   const mult = comboMultiplier();
   if (mult > 1) line(t("combo") + " x" + mult + "  (" + streak + ")", "#ffd60a");
   if (shield) line(t("shield"), "#4cc9f0");
@@ -1998,6 +2742,28 @@ function drawScene() {
       "#fff"
     );
     line("frame " + frameAvg.toFixed(1) + " ms  lowFx " + lowFx, "#fff");
+    line(
+      "fever " + feverMeter.toFixed(2) + "  graze " + run.grazes + "  chain " + grazeChain,
+      "#fff"
+    );
+    line(
+      "bad " +
+        effBadChance().toFixed(2) +
+        "  spawn " +
+        currentSpawnInterval().toFixed(2) +
+        "s  fall " +
+        Math.round(currentFall()),
+      "#fff"
+    );
+    line(
+      "pattern " +
+        (wavePlan ? wavePlan.id : "-") +
+        "  wind " +
+        windState +
+        " " +
+        Math.round(windCur),
+      "#fff"
+    );
   }
 
   ctx.textAlign = "center";
@@ -2006,7 +2772,7 @@ function drawScene() {
   ctx.lineWidth = 4;
   ctx.strokeStyle = "#10002b";
   toasts.slice(0, 2).forEach((ts, i) => {
-    const y = 62 + i * 22;
+    const y = 64 + i * 22;
     ctx.globalAlpha = Math.min(1, ts.life);
     ctx.strokeText(ts.text, canvas.width / 2, y);
     ctx.fillStyle = "#ffd60a";
@@ -2027,6 +2793,21 @@ function drawScene() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
+  // scritta FEVER!
+  if (feverFlash > 0) {
+    ctx.textAlign = "center";
+    ctx.lineJoin = "round";
+    ctx.globalAlpha = Math.min(1, feverFlash / 0.4);
+    ctx.font = "bold 56px sans-serif";
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = "#10002b";
+    ctx.strokeText(t("fever_banner"), canvas.width / 2, 250);
+    ctx.fillStyle = "#ffd60a";
+    ctx.fillText(t("fever_banner"), canvas.width / 2, 250);
+    ctx.globalAlpha = 1;
+  }
+
+  // striscione dello stage con nome dell'ondata
   if (bannerTimer > 0) {
     ctx.textAlign = "center";
     ctx.lineJoin = "round";
@@ -2043,6 +2824,13 @@ function drawScene() {
       ctx.strokeText(msg, canvas.width / 2, 205);
       ctx.fillStyle = zen ? "#ffd60a" : "#ff4d6d";
       ctx.fillText(msg, canvas.width / 2, 205);
+    }
+    if (wavePending && !(mode === "zen") && wavePlan) {
+      ctx.font = "bold 18px sans-serif";
+      ctx.lineWidth = 5;
+      ctx.strokeText(t("pat_" + wavePlan.id), canvas.width / 2, 232);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(t("pat_" + wavePlan.id), canvas.width / 2, 232);
     }
   }
 

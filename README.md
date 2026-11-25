@@ -16,6 +16,16 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 
 ## Version history 
 
+### v1.7.0
+- Near-miss bonus: pass close to a bat without touching it for points (and extra time in Time Attack)
+- Fever: build the bar with coins and near-misses for double points and a stronger magnet
+- Biome rules: Night limits your vision, Storm brings wind gusts
+- Six hand-designed wave patterns with a guaranteed safe path and a coin trail
+- New difficulty curve: a gentler start, then rising pressure and breathers after each wave
+- Hit-stop and a shattering death for more impact
+- 4 new achievements (15 in total) and new stats
+- Saves now have a version number and an automatic backup before migrating
+
 ### v1.6.1
 - Windows version (.exe): a portable app, no installation needed 
 **Windows app (.exe, no installation):** download it from the [Releases](https://github.com/ChennyZEN/catch-the-coin-/releases) page or from itch.io.
@@ -68,9 +78,7 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 - First public release
 
 ## Roadmap
-- - Offline play (PWA), code cleanup and more content ideas
-- Windows version (.exe) in v1.6.1
-- More skins, bats and power-ups based on feedback
+- Player levels, daily missions and an improved HUD
 
 ## Feedback
 Suggestions and bug reports are welcome on the Itch.io page or through GitHub issues.
