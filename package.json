@@ -1,6 +1,6 @@
 {
   "name": "catch-the-coin",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Catch the Coin - a one-life arcade game",
   "author": "ChennyZEN",
   "license": "MIT",
@@ -20,6 +20,7 @@
       "index.html",
       "style.css",
       "game.js",
+      "progress.js",
       "main.js",
       "package.json",
       "Assets/**/*",

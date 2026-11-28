@@ -603,3 +603,54 @@ h2 {
 .skin-card:not(.locked):hover img {
   animation: bounce 0.8s ease-in-out infinite;
 }
+/* ---- v1.7.1 ---- */
+
+/* Pulsante del livello nel menu: "Lv 7", barra XP, PROGRESSI */
+.level-btn {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 2);
+  width: calc(var(--u) * 84);
+  justify-content: space-between;
+}
+.level-label {
+  color: var(--gold);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.xp-bar {
+  flex: 1;
+  height: calc(var(--u) * 1.6);
+  border-radius: calc(var(--u) * 1);
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+.xp-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--gold), var(--hot));
+  transition: width 0.4s ease-out;
+}
+.xp-bar-big {
+  flex: none;
+  width: 100%;
+  height: calc(var(--u) * 2.2);
+}
+
+/* Schermata Progressi: testo copiabile se gli appunti sono bloccati */
+.copy-area {
+  width: 100%;
+  min-height: calc(var(--u) * 24);
+  font-family: monospace;
+  font-size: calc(var(--u) * 2.6);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--accent);
+  border-radius: calc(var(--u) * 1.5);
+  padding: calc(var(--u) * 1.5);
+  resize: none;
+}
+#copy-msg:empty {
+  display: none;
+}

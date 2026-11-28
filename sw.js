@@ -1,5 +1,5 @@
 /* Catch the Coin - service worker (PWA) */
-const VERSION = "1.7.0";
+const VERSION = "1.7.1";
 const CACHE = "catch-the-coin-" + VERSION;
 
 const ASSETS = [
@@ -7,6 +7,7 @@ const ASSETS = [
   "index.html",
   "style.css",
   "game.js",
+  "progress.js",
   "manifest.json",
   "Assets/player.png",
   "Assets/player_green.png",

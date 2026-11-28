@@ -16,6 +16,13 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 
 ## Version history 
 
+### v1.7.1
+- Player level and XP: every finished run earns XP (shown in the menu and on Game Over)
+- 3 daily missions (easy, medium, hard) with a day streak
+- History of your last 20 games, with averages and a "Copy data" button
+- 10 new achievements (25 in total)
+- New Progress screen
+
 ### v1.7.0
 - Near-miss bonus: pass close to a bat without touching it for points (and extra time in Time Attack)
 - Fever: build the bar with coins and near-misses for double points and a stronger magnet
@@ -78,7 +85,7 @@ Open the project folder in VS Code and launch `index.html` with the Live Server 
 - First public release
 
 ## Roadmap
-- Player levels, daily missions and an improved HUD
+- An improved HUD, a guided first run and progress export/import
 
 ## Feedback
 Suggestions and bug reports are welcome on the Itch.io page or through GitHub issues.

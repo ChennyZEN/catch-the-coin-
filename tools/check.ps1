@@ -7,7 +7,7 @@ function Bad($m)  { Write-Host "ERRORE   $m" -ForegroundColor Red; $script:error
 
 Write-Host "=== File e maiuscole/minuscole (come sul server di Itch.io) ===" -ForegroundColor Cyan
 $rootNames = (Get-ChildItem -File).Name
-foreach ($f in "index.html","style.css","game.js","sw.js","manifest.json","main.js","package.json","package-lock.json","LICENSE","README.md","CREDITS.txt") {
+foreach ($f in "index.html","style.css","game.js","progress.js","sw.js","manifest.json","main.js","package.json","package-lock.json","LICENSE","README.md","CREDITS.txt") {
   if ($rootNames -ccontains $f) { Ok $f } else { Bad "manca (o maiuscole diverse): $f" }
 }
 if ((Get-ChildItem -Directory).Name -ccontains "Assets") { Ok "cartella Assets" } else { Bad "cartella Assets non trovata (attenzione alla A maiuscola)" }
@@ -39,11 +39,13 @@ if ($v) {
 }
 
 Write-Host "=== Codice ===" -ForegroundColor Cyan
-if (Select-String -Path game.js -Pattern 'console\.log|debugger' -Quiet) { Warn "game.js contiene console.log o debugger" } else { Ok "nessun console.log o debugger" }
+if (Select-String -Path game.js,progress.js -Pattern 'console\.log|debugger' -Quiet) { Warn "game.js o progress.js contiene console.log o debugger" } else { Ok "nessun console.log o debugger" }
 if (Get-Command node -ErrorAction SilentlyContinue) {
 try { Get-Content manifest.json -Raw | ConvertFrom-Json | Out-Null; Ok "manifest.json valido" } catch { Bad "manifest.json non è un JSON valido" }
   node --check game.js
   if ($LASTEXITCODE -eq 0) { Ok "game.js: sintassi valida" } else { Bad "game.js: errore di sintassi" }
+  node --check progress.js
+  if ($LASTEXITCODE -eq 0) { Ok "progress.js: sintassi valida" } else { Bad "progress.js: errore di sintassi" }
 } else { Warn "Node.js non installato: salto il controllo di sintassi" }
 
 Write-Host "=== Git ===" -ForegroundColor Cyan

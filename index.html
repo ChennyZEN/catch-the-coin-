@@ -17,7 +17,7 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" href="Assets/coin.png" />
     <link rel="apple-touch-icon" href="Assets/icon-192.png" />
-    <link rel="stylesheet" href="style.css?v=1.7.0" />
+    <link rel="stylesheet" href="style.css?v=1.7.1" />
   </head>
   <body>
     <div id="game-wrap">
@@ -27,12 +27,17 @@
 
       <!-- MAIN MENU -->
       <div id="screen-menu" class="screen">
-        <p class="version">v1.7.0</p>
+        <p class="version">v1.7.1</p>
         <img class="menu-coin" src="Assets/coin.png" alt="" onerror="this.style.display = 'none'" />
         <h1>Catch the Coin</h1>
         <p class="stat">
           <span data-i18n="record">Record</span>: <strong id="menu-record">0</strong>
         </p>
+        <button id="btn-progress" class="btn btn-small level-btn">
+          <span id="menu-level" class="level-label">Lv 1</span>
+          <span class="xp-bar"><span id="menu-xp-fill"></span></span>
+          <span data-i18n="progress">PROGRESS</span>
+        </button>
         <div class="modes">
           <button class="btn btn-small mode-btn" data-mode="classic" data-i18n="mode_classic">
             Classic
@@ -91,6 +96,16 @@
         <h2 data-i18n="stats">STATS</h2>
         <div id="stats-list" class="list"></div>
         <button id="btn-stats-back" class="btn btn-primary" data-i18n="back">BACK</button>
+      </div>
+
+      <!-- PROGRESS [v1.7.1] -->
+      <div id="screen-progress" class="screen panel hidden">
+        <h2 data-i18n="progress">PROGRESS</h2>
+        <div id="progress-list" class="list"></div>
+        <button id="btn-copy" class="btn btn-small" data-i18n="copy">COPY DATA</button>
+        <p id="copy-msg" class="setting-label"></p>
+        <textarea id="copy-area" class="copy-area hidden" readonly rows="6"></textarea>
+        <button id="btn-progress-back" class="btn btn-primary" data-i18n="back">BACK</button>
       </div>
 
       <!-- SETTINGS -->
@@ -159,6 +174,7 @@
       </div>
     </div>
 
-    <script src="game.js?v=1.7.0"></script>
+    <script src="game.js?v=1.7.1"></script>
+    <script src="progress.js?v=1.7.1"></script>
   </body>
 </html>

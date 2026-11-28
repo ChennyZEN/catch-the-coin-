@@ -46,7 +46,8 @@ const el = {
   overAch: $("over-ach"),
   statsList: $("stats-list"),
   skinList: $("skin-list"),
-  skinTotal: $("skin-total")
+  skinTotal: $("skin-total"),
+  progress: $("screen-progress") // [v1.7.1]
 };
 const modeBtns = document.querySelectorAll(".mode-btn");
 const langBtns = document.querySelectorAll(".lang-btn");
@@ -54,7 +55,7 @@ const volMusic = document.querySelectorAll(".vol-music");
 const volSfx = document.querySelectorAll(".vol-sfx");
 
 const MODES = ["classic", "daily", "time", "zen"];
-const SCHEMA = 2; // [v1.7.0] versione dei dati salvati
+const SCHEMA = 3; // [v1.7.0] versione dei dati salvati ([v1.7.1] 3: livello, missioni, storico)
 
 // skin del personaggio: "need" = monete totali per sbloccarla
 const SKINS = [
@@ -468,7 +469,7 @@ const I18N = {
 };
 
 // ---- STATO ----
-let state = "menu"; // menu | skins | howto | stats | settings | countdown | playing | paused | dying | gameover
+let state = "menu"; // menu | skins | howto | stats | settings | progress | countdown | playing | paused | dying | gameover
 let mode = "classic";
 let selectedMode = "classic";
 let score, lives, player, items, spawnTimer;
@@ -507,7 +508,16 @@ let timeLeft = 0,
   runTime = 0,
   spawnIndex = 0,
   playerHidden = false;
-let run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, grazes: 0, fevers: 0, ended: false };
+let run = {
+  coins: 0,
+  gold: 0,
+  powerups: 0,
+  shieldSaves: 0,
+  grazes: 0,
+  fevers: 0,
+  bestStreak: 0,
+  ended: false
+};
 let runUnlocked = [];
 let runSkins = [];
 let toasts = [];
@@ -600,7 +610,15 @@ function defaultStats() {
     best: { classic: 0, time: 0, zen: 0 },
     daily: {},
     ach: {},
-    skinSeen: {}
+    skinSeen: {},
+    // [v1.7.1] livello, missioni giornaliere e storico (vedi progress.js)
+    xp: 0,
+    history: [],
+    missions: null,
+    missionsDone: 0,
+    missionStreak: 0,
+    bestMissionStreak: 0,
+    missionLastDay: ""
   };
 }
 let stats = defaultStats();
@@ -629,6 +647,15 @@ try {
       stats.daily = s.daily || {};
       stats.ach = s.ach || {};
       stats.skinSeen = s.skinSeen || {};
+      // [v1.7.1] controlli sui dati nuovi e XP iniziali per chi giocava già
+      stats.history = Array.isArray(s.history) ? s.history.slice(0, 20) : [];
+      stats.xp = Math.max(0, Math.floor(Number(stats.xp) || 0));
+      if (from < 3)
+        stats.xp = Math.floor(
+          (Number(stats.coins) || 0) +
+            2 * (Number(stats.gold) || 0) +
+            (Number(stats.grazes) || 0) / 2
+        );
       stats.schema = SCHEMA;
     }
   }
@@ -660,6 +687,17 @@ function todayKey() {
 }
 function bestFor(m) {
   return m === "daily" ? stats.daily[todayKey()] || 0 : stats.best[m] || 0;
+}
+// [v1.7.1] chiama una funzione di progress.js solo se il file è stato caricato
+function progressHook(name, arg) {
+  const p = window.CTC_PROGRESS;
+  if (!p || typeof p[name] !== "function") return undefined;
+  try {
+    return p[name](arg);
+  } catch (e) {
+    if (DEBUG) console.warn("progress.js:", e);
+    return undefined;
+  }
 }
 
 // ---- NUMERI CASUALI RIPRODUCIBILI (per la sfida giornaliera) ----
@@ -1231,7 +1269,16 @@ function resetGame() {
   runTime = 0;
   spawnIndex = 0;
   playerHidden = false;
-  run = { coins: 0, gold: 0, powerups: 0, shieldSaves: 0, grazes: 0, fevers: 0, ended: false };
+  run = {
+    coins: 0,
+    gold: 0,
+    powerups: 0,
+    shieldSaves: 0,
+    grazes: 0,
+    fevers: 0,
+    bestStreak: 0, // [v1.7.1] combo massima della partita
+    ended: false
+  };
   runUnlocked = [];
   runSkins = [];
   displayScore = 0;
@@ -1354,9 +1401,10 @@ function finishGame() {
     if (mode === "daily") stats.daily[dailyKey] = score;
     else stats.best[mode] = score;
   }
+  const prog = progressHook("finish") || {}; // [v1.7.1] XP, missioni, storico
   checkAch();
   saveStats();
-  if (newRecord) SFX.record();
+  if (newRecord || prog.levelUp) SFX.record();
   else SFX.gameover();
 }
 function goTo(s) {
@@ -1595,6 +1643,7 @@ function refreshModeUI() {
   if (selectedMode === "daily") d += " (" + todayKey() + ")";
   el.modeDesc.textContent = d;
   el.menuRecord.textContent = bestFor(selectedMode);
+  progressHook("menu"); // [v1.7.1]
 }
 function selectMode(m) {
   if (!MODES.includes(m)) return;
@@ -1614,6 +1663,7 @@ function applyLang() {
   refreshModeUI();
   if (state === "stats") renderStats();
   if (state === "skins") renderSkins();
+  if (state === "progress") progressHook("render"); // [v1.7.1]
 }
 function setLang(l) {
   lang = l;
@@ -1715,6 +1765,7 @@ function fillGameOver() {
     lines.push(t("ach_unlocked") + ": " + runUnlocked.map((id) => t("ach_" + id)).join(", "));
   if (runSkins.length)
     lines.push(t("skin_unlocked") + ": " + runSkins.map((id) => t("skin_" + id)).join(", "));
+  progressHook("gameOverLines", lines); // [v1.7.1] XP, livello, missioni
   el.overAch.textContent = lines.join("\n");
   el.overAch.classList.toggle("hidden", lines.length === 0);
 }
@@ -1915,6 +1966,8 @@ onClick("btn-skins", () => goTo("skins"));
 onClick("btn-howto", () => goTo("howto"));
 onClick("btn-stats", () => goTo("stats"));
 onClick("btn-settings", () => goTo("settings"));
+onClick("btn-progress", () => goTo("progress")); // [v1.7.1]
+onClick("btn-progress-back", goToMenu);
 onClick("btn-skins-back", goToMenu);
 onClick("btn-howto-back", goToMenu);
 onClick("btn-stats-back", goToMenu);
@@ -2012,6 +2065,7 @@ function syncScreens() {
     howto: el.howto,
     stats: el.stats,
     settings: el.settings,
+    progress: el.progress,
     paused: el.pause,
     gameover: el.gameover
   };
@@ -2020,6 +2074,7 @@ function syncScreens() {
   if (state === "menu") refreshModeUI();
   if (state === "skins") renderSkins();
   if (state === "stats") renderStats();
+  if (state === "progress") progressHook("render"); // [v1.7.1]
   if (state === "gameover") fillGameOver();
   if (state !== "settings") disarmReset();
 }
@@ -2048,7 +2103,11 @@ window.addEventListener("keydown", (e) => {
   }
   if (
     e.key === "Escape" &&
-    (state === "skins" || state === "howto" || state === "stats" || state === "settings")
+    (state === "skins" ||
+      state === "howto" ||
+      state === "stats" ||
+      state === "settings" ||
+      state === "progress")
   )
     goToMenu();
   if (state === "menu" && e.key >= "1" && e.key <= "4") selectMode(MODES[Number(e.key) - 1]);
@@ -2279,6 +2338,7 @@ function update(dt) {
         stats.coins++;
         run.coins++;
         stats.bestStreak = Math.max(stats.bestStreak, streak);
+        run.bestStreak = Math.max(run.bestStreak, streak); // [v1.7.1]
         const value = (it.kind === "gold" ? CONFIG.goldValue : 1) * scoreMult();
         score += value;
         player.pop = it.kind === "gold" ? 1.3 : 1;

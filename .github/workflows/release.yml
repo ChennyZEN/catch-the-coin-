@@ -39,7 +39,7 @@ jobs:
       - name: Check project files
         run: |
           # Linux distingue maiuscole e minuscole, come il server di Itch.io
-          for f in index.html style.css game.js sw.js manifest.json main.js package.json package-lock.json \
+          for f in index.html style.css game.js progress.js sw.js manifest.json main.js package.json package-lock.json \
                    LICENSE CREDITS.txt README.md \
                    Assets/player.png Assets/player_green.png Assets/player_pink.png \
                    Assets/coin.png Assets/bat.png \
@@ -47,7 +47,7 @@ jobs:
                    Assets/icon-192.png Assets/icon-512.png Assets/icon-maskable-512.png; do
             [ -f "$f" ] || { echo "Missing file: $f"; exit 1; }
           done
-          if grep -En '^(<<<<<<<|=======|>>>>>>>)' index.html style.css game.js sw.js main.js README.md CREDITS.txt; then
+          if grep -En '^(<<<<<<<|=======|>>>>>>>)' index.html style.css game.js progress.js sw.js main.js README.md CREDITS.txt; then
             echo "Merge conflict markers found"; exit 1
           fi
           python3 -c "import json; json.load(open('manifest.json')); json.load(open('package.json'))"
@@ -58,7 +58,7 @@ jobs:
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           mkdir build
-          cp index.html style.css game.js sw.js manifest.json LICENSE CREDITS.txt build/
+          cp index.html style.css game.js progress.js sw.js manifest.json LICENSE CREDITS.txt build/
           cp -r Assets build/
           # allinea il parametro ?v= e la versione del service worker
           sed -i -E "s/\?v=[0-9]+\.[0-9]+\.[0-9]+/?v=${VERSION}/g" build/index.html
